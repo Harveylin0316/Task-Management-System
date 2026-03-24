@@ -200,10 +200,17 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     const t = window.setTimeout(() => {
       void src.save(data).catch((err) => {
         console.error('儲存失敗', err)
+        const msg =
+          err instanceof Error ? err.message : typeof err === 'string' ? err : ''
+        toast(
+          msg
+            ? `雲端儲存失敗：${msg}`
+            : '雲端儲存失敗，請開開發者工具 Console 查看原因',
+        )
       })
     }, 450)
     return () => window.clearTimeout(t)
-  }, [data, hydrated])
+  }, [data, hydrated, toast])
 
   const exportJson = useCallback(() => {
     const blob = new Blob([JSON.stringify(data, null, 2)], {

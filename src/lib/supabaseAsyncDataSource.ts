@@ -17,6 +17,23 @@ async function ensureSession(client: SupabaseClient): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+/** getUser() 有時在剛 sign-in 後仍為空；以 session 為準較穩 */
+async function getAuthedUserId(client: SupabaseClient): Promise<string> {
+  await ensureSession(client)
+  const {
+    data: { session },
+  } = await client.auth.getSession()
+  const fromSession = session?.user?.id
+  if (fromSession) return fromSession
+  const {
+    data: { user },
+    error,
+  } = await client.auth.getUser()
+  if (error) throw error
+  if (!user?.id) throw new Error('未取得使用者，請確認 Supabase 已啟用 Anonymous 登入')
+  return user.id
+}
+
 async function fetchPayload(
   client: SupabaseClient,
   userId: string,
@@ -51,19 +68,14 @@ export function createSupabaseAsyncDataSource(
 ): AsyncDataSource {
   return {
     async load() {
-      await ensureSession(client)
-      const {
-        data: { user },
-        error: userErr,
-      } = await client.auth.getUser()
-      if (userErr || !user) throw userErr ?? new Error('未取得使用者')
+      const userId = await getAuthedUserId(client)
 
-      const payload = await fetchPayload(client, user.id)
+      const payload = await fetchPayload(client, userId)
       if (payload != null) return migrateAppData(payload)
 
       const local = readPersistedLocalAppData()
       if (local) {
-        await upsertPayload(client, user.id, local)
+        await upsertPayload(client, userId, local)
         clearPersistedLocalAppData()
         return local
       }
@@ -72,13 +84,8 @@ export function createSupabaseAsyncDataSource(
     },
 
     async save(data: AppData) {
-      await ensureSession(client)
-      const {
-        data: { user },
-        error: userErr,
-      } = await client.auth.getUser()
-      if (userErr || !user) return
-      await upsertPayload(client, user.id, data)
+      const userId = await getAuthedUserId(client)
+      await upsertPayload(client, userId, data)
     },
   }
 }
