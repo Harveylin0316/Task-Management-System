@@ -14,6 +14,25 @@ export type SupabaseAsyncDataSource = AsyncDataSource & {
   needsEmailToReachCloud(): boolean
 }
 
+/** 曾偵測到匿名被 API 停用時寫入，之後不再呼叫 signInAnonymously，避免每次開頁都 422 洗版 */
+const SKIP_ANONYMOUS_KEY = 'wm_supabase_skip_anonymous_v1'
+
+function shouldSkipAnonymousSignIn(): boolean {
+  try {
+    return localStorage.getItem(SKIP_ANONYMOUS_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function rememberAnonymousDisabledByApi(): void {
+  try {
+    localStorage.setItem(SKIP_ANONYMOUS_KEY, '1')
+  } catch {
+    /* */
+  }
+}
+
 function authErrorCode(error: { message: string; code?: string }): string {
   return typeof error.code === 'string' ? error.code : ''
 }
@@ -114,6 +133,11 @@ export function createSupabaseAsyncDataSource(
         return loadFromCloud(client, session.user.id)
       }
 
+      if (shouldSkipAnonymousSignIn()) {
+        needsEmail = true
+        return readPersistedLocalAppData() ?? defaultData()
+      }
+
       const { error } = await client.auth.signInAnonymously()
       if (!error) {
         const {
@@ -123,6 +147,7 @@ export function createSupabaseAsyncDataSource(
       }
 
       if (error && isAnonymousBlocked(error)) {
+        rememberAnonymousDisabledByApi()
         needsEmail = true
         return readPersistedLocalAppData() ?? defaultData()
       }
@@ -140,6 +165,11 @@ export function createSupabaseAsyncDataSource(
         return
       }
 
+      if (shouldSkipAnonymousSignIn()) {
+        localOnly.save(data)
+        return
+      }
+
       const { error } = await client.auth.signInAnonymously()
       if (!error) {
         const {
@@ -152,6 +182,7 @@ export function createSupabaseAsyncDataSource(
       }
 
       if (error && isAnonymousBlocked(error)) {
+        rememberAnonymousDisabledByApi()
         localOnly.save(data)
         return
       }
