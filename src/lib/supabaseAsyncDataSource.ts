@@ -184,11 +184,10 @@ async function upsertPayload(
   ) {
     const existingApp = migrateAppData(existingPayload)
     if (existingApp.teamRoster.length > 0) {
-      outgoing = {
+      outgoing = prepareAppDataForPersist({
         ...outgoing,
-        teamRoster: existingApp.teamRoster,
-        teamRosterCloudBackup: existingApp.teamRoster,
-      }
+        teamRoster: existingApp.teamRoster.map((m) => ({ ...m })),
+      })
       didMergeRosterFromServer = true
     }
   }
@@ -223,7 +222,7 @@ export function createSupabaseAsyncDataSource(
   let needsEmail = false
   /** 上次 load 是否已執行過 loadFromCloud（成功讀寫雲端列） */
   let cloudHydratedAtLastLoad = false
-  /** 串行 save，避免 debounce 與 pagehide 兩次 upsert 交錯造成最後寫入蓋掉名冊 */
+  /** 串行 save，避免連續寫入與 pagehide flush 交錯造成最後寫入蓋掉名冊 */
   let saveChain: Promise<AppData | undefined> = Promise.resolve(undefined)
 
   return {

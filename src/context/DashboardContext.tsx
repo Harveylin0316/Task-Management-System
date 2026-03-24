@@ -342,32 +342,30 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     return Math.min(Math.max(0, selectedBigProjectIdx), n - 1)
   }, [data.bigProjects, selectedBigProjectIdx])
 
+  /** 資料一變更就寫入（雲端／本機），不 debounce；Supabase 端 save 已串行化避免交錯覆寫 */
   useEffect(() => {
     if (!hydrated || !mayPersistRef.current || !initialDataLoadedRef.current)
       return
     const src = sourceRef.current!
-    const t = window.setTimeout(() => {
-      const snap = dataRef.current
-      void src
-        .save(snap)
-        .then((repaired) => {
-          if (repaired != null) setData(repaired)
-        })
-        .catch((err) => {
-          console.error('儲存失敗', err)
-          const msg =
-            err instanceof Error ? err.message : typeof err === 'string' ? err : ''
-          toastRef.current(
-            msg
-              ? `雲端儲存失敗：${msg}`
-              : '雲端儲存失敗，請開開發者工具 Console 查看原因',
-          )
-        })
-    }, 300)
-    return () => window.clearTimeout(t)
+    const snap = dataRef.current
+    void src
+      .save(snap)
+      .then((repaired) => {
+        if (repaired != null) setData(repaired)
+      })
+      .catch((err) => {
+        console.error('儲存失敗', err)
+        const msg =
+          err instanceof Error ? err.message : typeof err === 'string' ? err : ''
+        toastRef.current(
+          msg
+            ? `雲端儲存失敗：${msg}`
+            : '雲端儲存失敗，請開開發者工具 Console 查看原因',
+        )
+      })
   }, [data, hydrated])
 
-  /** 關閉分頁／重新整理前立刻存檔；避免 debounce 被 cleanup 取消導致名冊等變更未上傳 */
+  /** 關閉分頁／重新整理前再 flush 一次，確保離開前最後狀態有送出 */
   useEffect(() => {
     const flush = () => {
       if (
