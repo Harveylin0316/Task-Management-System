@@ -80,10 +80,12 @@ export function augmentAppDataWithRosterFromAssigneesIfEmpty(data: AppData): App
     data as unknown as Record<string, unknown>,
   )
   if (inferred.length === 0) return data
+  const roster = inferred.map((m) => ({ ...m }))
+  const backup = roster.map((m) => ({ ...m }))
   return {
     ...data,
-    teamRoster: inferred,
-    teamRosterCloudBackup: inferred,
+    teamRoster: roster,
+    teamRosterCloudBackup: backup,
   }
 }
 
@@ -327,7 +329,7 @@ export function migrateAppData(raw: unknown): AppData {
     : base.teamRosterCloudBackup
 
   if (teamRoster.length > 0 && teamRosterCloudBackup.length === 0) {
-    teamRosterCloudBackup = teamRoster
+    teamRosterCloudBackup = teamRoster.map((m) => ({ ...m }))
   }
 
   return {

@@ -256,13 +256,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       ) {
         try {
           const repaired = await src.save(dataRef.current)
-          if (repaired != null) setData(migrateAppData(repaired))
+          if (repaired != null) setData(repaired)
         } catch {
           /* 先存再拉失敗時仍嘗試載入雲端 */
         }
       }
       const loaded = await src.load()
-      setData(migrateAppData(loaded))
+      setData(loaded)
       mayPersistRef.current = isSupabaseAsyncDataSource(src)
         ? src.allowAutoSaveAfterLoad()
         : true
@@ -283,7 +283,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       try {
         const loaded = await sourceRef.current!.load()
         if (cancelled) return
-        setData(migrateAppData(loaded))
+        setData(loaded)
         initialDataLoadedRef.current = true
         const src = sourceRef.current!
         mayPersistRef.current = isSupabaseAsyncDataSource(src)
@@ -351,7 +351,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       void src
         .save(snap)
         .then((repaired) => {
-          if (repaired != null) setData(migrateAppData(repaired))
+          if (repaired != null) setData(repaired)
         })
         .catch((err) => {
           console.error('儲存失敗', err)
@@ -381,7 +381,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       void src
         .save(snap)
         .then((repaired) => {
-          if (repaired != null) setData(migrateAppData(repaired))
+          if (repaired != null) setData(repaired)
         })
         .catch((err) => {
           console.error('離開頁面前儲存失敗', err)
