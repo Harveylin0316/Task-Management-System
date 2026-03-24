@@ -34,6 +34,41 @@ function nid(): string {
   return newId()
 }
 
+/** 由 assignee 推斷名冊時使用穩定 id，避免每次 migrate 產生新 uuid 造成重複成員 */
+function stableInferredMemberId(name: string): string {
+  let h = 2166136261
+  for (let i = 0; i < name.length; i++) {
+    h ^= name.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return `wm-r-${(h >>> 0).toString(36)}`
+}
+
+/** 名冊為空時，從任務負責人欄位還原（與「只打負責人、未走名冊頁」的情境相容） */
+function inferTeamRosterFromTaskAssignees(
+  d: Record<string, unknown>,
+): TeamRosterMember[] {
+  const names = new Set<string>()
+  for (const key of ['today', 'active', 'someday', 'done'] as const) {
+    const arr = d[key]
+    if (!Array.isArray(arr)) continue
+    for (const t of arr) {
+      if (!t || typeof t !== 'object') continue
+      const a = (t as Record<string, unknown>).assignee
+      if (typeof a === 'string') {
+        const s = a.trim()
+        if (s.length > 0) names.add(s)
+      }
+    }
+  }
+  if (names.size === 0) return []
+  return [...names].sort().map((name) => ({
+    id: stableInferredMemberId(name),
+    name,
+    departmentId: null as string | null,
+  }))
+}
+
 /** 相容舊版無 id 的 JSON，並補齊欄位 */
 export function migrateAppData(raw: unknown): AppData {
   const base = defaultData()
@@ -226,10 +261,9 @@ export function migrateAppData(raw: unknown): AppData {
     : base.departments
   if (!departments.length) departments = createDefaultDepartments()
 
-  const explicitEmptyTeamRoster =
-    'teamRoster' in d &&
-    Array.isArray(d.teamRoster) &&
-    d.teamRoster.length === 0
+  const uiRaw = (d.ui ?? {}) as Record<string, unknown>
+  /** 僅在使用者刪光名冊或匯入空名冊時為 true；舊版 JSON 無此欄時，勿把 teamRoster:[] 當成「不可從備援還原」 */
+  const rosterClearedByUser = uiRaw.teamRosterClearedByUser === true
 
   let teamRoster: TeamRosterMember[] = Array.isArray(d.teamRoster)
     ? d.teamRoster.map((x) =>
@@ -238,7 +272,7 @@ export function migrateAppData(raw: unknown): AppData {
     : base.teamRoster
 
   if (
-    !explicitEmptyTeamRoster &&
+    !rosterClearedByUser &&
     teamRoster.length === 0 &&
     Array.isArray(d.teamRosterCloudBackup) &&
     d.teamRosterCloudBackup.length > 0
@@ -248,7 +282,11 @@ export function migrateAppData(raw: unknown): AppData {
     )
   }
 
-  const uiRaw = (d.ui ?? {}) as Record<string, unknown>
+  if (!rosterClearedByUser && teamRoster.length === 0) {
+    const fromAssignees = inferTeamRosterFromTaskAssignees(d)
+    if (fromAssignees.length > 0) teamRoster = fromAssignees
+  }
+
   const dt = uiRaw.defaultTab
   const ui: AppUiPrefs = {}
   if (typeof dt === 'string' && VALID_DASHBOARD_TABS.has(dt as DashboardTabId)) {
@@ -260,15 +298,19 @@ export function migrateAppData(raw: unknown): AppData {
     else if (v === null) ui.deptWorkspaceFocusDeptId = null
   }
   if (uiRaw.skipAnonymousSignIn === true) ui.skipAnonymousSignIn = true
-  if (uiRaw.teamRosterClearedByUser === true) ui.teamRosterClearedByUser = true
+  if (rosterClearedByUser) ui.teamRosterClearedByUser = true
 
-  const teamRosterCloudBackup: TeamRosterMember[] = Array.isArray(
+  let teamRosterCloudBackup: TeamRosterMember[] = Array.isArray(
     d.teamRosterCloudBackup,
   )
     ? d.teamRosterCloudBackup.map((x) =>
         mapTeamRosterMember(x as unknown as Record<string, unknown>),
       )
     : base.teamRosterCloudBackup
+
+  if (teamRoster.length > 0 && teamRosterCloudBackup.length === 0) {
+    teamRosterCloudBackup = teamRoster
+  }
 
   return {
     departments,

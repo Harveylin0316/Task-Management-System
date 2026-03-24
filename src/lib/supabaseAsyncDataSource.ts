@@ -104,20 +104,15 @@ async function loadFromCloud(
     const app = migrateAppData(payload)
     syncSkipAnonymousSessionFlag(app.ui)
 
-    const explicitEmpty =
-      'teamRoster' in raw &&
-      Array.isArray(raw.teamRoster) &&
-      raw.teamRoster.length === 0
-    const rosterMissingOrEmpty =
-      !explicitEmpty &&
-      (!Array.isArray(raw.teamRoster) || raw.teamRoster.length === 0)
-    const mergedFromBackup =
-      rosterMissingOrEmpty &&
-      app.teamRoster.length > 0 &&
-      Array.isArray(raw.teamRosterCloudBackup) &&
-      raw.teamRosterCloudBackup.length > 0
+    const rawUi = (raw.ui ?? {}) as Record<string, unknown>
+    const rosterClearedByUser = rawUi.teamRosterClearedByUser === true
+    const rawRosterEmpty =
+      !Array.isArray(raw.teamRoster) || raw.teamRoster.length === 0
+    /** migrate 可能從 teamRosterCloudBackup 或任務 assignee 補回名冊，需寫回 DB */
+    const shouldPersistRosterRepair =
+      !rosterClearedByUser && rawRosterEmpty && app.teamRoster.length > 0
 
-    if (mergedFromBackup) {
+    if (shouldPersistRosterRepair) {
       const toSave = prepareAppDataForPersist(app)
       const { error: upErr } = await client.from('dashboard_data').upsert(
         {
