@@ -342,7 +342,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     return Math.min(Math.max(0, selectedBigProjectIdx), n - 1)
   }, [data.bigProjects, selectedBigProjectIdx])
 
-  /** 資料一變更就寫入（雲端／本機），不 debounce；Supabase 端 save 已串行化避免交錯覆寫 */
+  /**
+   * 所有會改動 AppData 的邏輯都應經由本檔的 setData / updateUiPrefs（各頁僅用表單用 useState）。
+   * 此 effect 依 [data] 立即呼叫 source.save；勿在頁面另做 debounce 或直寫 localStorage／Supabase。
+   */
   useEffect(() => {
     if (!hydrated || !mayPersistRef.current || !initialDataLoadedRef.current)
       return
