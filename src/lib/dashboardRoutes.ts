@@ -8,6 +8,7 @@ export const DASHBOARD_TABS: { id: DashboardTabId; label: string }[] = [
   { id: 'tasks', label: '📋 任務看板' },
   { id: 'calendar', label: '🗓 行程 & 截止日' },
   { id: 'weekly', label: '📊 週報回顧' },
+  { id: 'bossweekly', label: '📨 給老闆週報' },
   { id: 'projects', label: '🗂 專案管理' },
 ]
 

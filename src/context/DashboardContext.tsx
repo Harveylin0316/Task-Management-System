@@ -14,10 +14,11 @@ import {
   readPersistedLocalAppData,
   type AsyncDataSource,
 } from '../lib/dataSource'
-import { defaultData } from '../lib/defaultData'
+import { defaultData, emptyBossWeeklyReport } from '../lib/defaultData'
 import { toISODateLocal } from '../lib/dateUtils'
 import { newId } from '../lib/id'
 import { migrateAppData } from '../lib/migrate'
+import { exampleBossWeeklyReportHen20260318 } from '../lib/bossWeeklyReportExampleData'
 import { appendDoneTasksToAccomplished } from '../lib/weeklyAccomplished'
 import {
   createSupabaseAsyncDataSource,
@@ -159,6 +160,10 @@ export type DashboardContextValue = {
   acknowledgeMeetingNotesSaved: () => void
   patchWeeklyReview: (partial: Partial<AppData['weeklyReview']>) => void
   acknowledgeWeeklySaved: () => void
+  patchBossWeeklyReport: (partial: Partial<AppData['bossWeeklyReport']>) => void
+  /** 載入 Hen 2026/03/18 格式參考範例（有內容時會先確認） */
+  applyBossWeeklyReportExampleHen20260318: () => void
+  clearBossWeeklyReport: () => void
   addBigProject: (fields: {
     name: string
     goal: string
@@ -1094,6 +1099,36 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     toast('已記錄本週檢視（內容早已自動同步雲端）')
   }, [toast])
 
+  const patchBossWeeklyReport = useCallback(
+    (partial: Partial<AppData['bossWeeklyReport']>) => {
+      setData((prev) => ({
+        ...prev,
+        bossWeeklyReport: { ...prev.bossWeeklyReport, ...partial },
+      }))
+    },
+    [],
+  )
+
+  const applyBossWeeklyReportExampleHen20260318 = useCallback(() => {
+    const cur = dataRef.current.bossWeeklyReport
+    const dirty = Object.values(cur).some((v) => String(v).trim() !== '')
+    if (dirty && !window.confirm('目前草稿有內容，確定覆寫為參考範例？')) return
+    setData((prev) => ({
+      ...prev,
+      bossWeeklyReport: exampleBossWeeklyReportHen20260318(),
+    }))
+    toast('已載入參考範例（可依本週再改）')
+  }, [toast])
+
+  const clearBossWeeklyReport = useCallback(() => {
+    if (!window.confirm('確定清空「給老闆週報」全部欄位？')) return
+    setData((prev) => ({
+      ...prev,
+      bossWeeklyReport: emptyBossWeeklyReport(),
+    }))
+    toast('已清空')
+  }, [toast])
+
   const addBigProject = useCallback(
     (fields: {
       name: string
@@ -1449,6 +1484,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       acknowledgeMeetingNotesSaved,
       patchWeeklyReview,
       acknowledgeWeeklySaved,
+      patchBossWeeklyReport,
+      applyBossWeeklyReportExampleHen20260318,
+      clearBossWeeklyReport,
       addBigProject,
       removeBigProject,
       updateBigProjectStatus,
@@ -1508,6 +1546,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       acknowledgeMeetingNotesSaved,
       patchWeeklyReview,
       acknowledgeWeeklySaved,
+      patchBossWeeklyReport,
+      applyBossWeeklyReportExampleHen20260318,
+      clearBossWeeklyReport,
       addBigProject,
       removeBigProject,
       updateBigProjectStatus,

@@ -80,6 +80,21 @@ export interface WeeklyReview {
   reflection?: string
 }
 
+/**
+ * 給主管／總部的英文週報草稿（多為 tab 分隔表，可貼到 Email 或試算表）。
+ */
+export interface BossWeeklyReport {
+  titleLine: string
+  /** 開頭問候與報告區間、署名 */
+  opening: string
+  sectionFinancial: string
+  sectionMarketingBu: string
+  sectionSalesBu: string
+  sectionPartnerships: string
+  sectionCampaigns: string
+  sectionKeyIssues: string
+}
+
 export type BigProjectStatus =
   | 'active'
   | 'on-track'
@@ -144,6 +159,7 @@ export type DashboardTabId =
   | 'tasks'
   | 'calendar'
   | 'weekly'
+  | 'bossweekly'
   | 'projects'
 
 /** 與業務資料一併存於雲端 payload 的介面偏好 */
@@ -183,6 +199,8 @@ export interface AppData {
   deadlines: DeadlineItem[]
   meetingNotes: string
   weeklyReview: WeeklyReview
+  /** 給老闆／總部的週報草稿（與內部「週報回顧」分開） */
+  bossWeeklyReport: BossWeeklyReport
   bigProjects: BigProject[]
 }
 

@@ -27,6 +27,7 @@ const VALID_DASHBOARD_TABS = new Set<DashboardTabId>([
   'tasks',
   'calendar',
   'weekly',
+  'bossweekly',
   'projects',
 ])
 
@@ -273,6 +274,11 @@ export function migrateAppData(raw: unknown): AppData {
   }
 
   const wr = (d.weeklyReview ?? {}) as Record<string, unknown>
+  const bwrRaw = d.bossWeeklyReport
+  const bwr =
+    bwrRaw != null && typeof bwrRaw === 'object' && !Array.isArray(bwrRaw)
+      ? (bwrRaw as Record<string, unknown>)
+      : {}
 
   let departments: Department[] = Array.isArray(d.departments)
     ? d.departments.map((x) =>
@@ -362,6 +368,16 @@ export function migrateAppData(raw: unknown): AppData {
       next: wr.next != null ? String(wr.next) : '',
       blockers: wr.blockers != null ? String(wr.blockers) : '',
       reflection: wr.reflection != null ? String(wr.reflection) : '',
+    },
+    bossWeeklyReport: {
+      titleLine: String(bwr.titleLine ?? ''),
+      opening: String(bwr.opening ?? ''),
+      sectionFinancial: String(bwr.sectionFinancial ?? ''),
+      sectionMarketingBu: String(bwr.sectionMarketingBu ?? ''),
+      sectionSalesBu: String(bwr.sectionSalesBu ?? ''),
+      sectionPartnerships: String(bwr.sectionPartnerships ?? ''),
+      sectionCampaigns: String(bwr.sectionCampaigns ?? ''),
+      sectionKeyIssues: String(bwr.sectionKeyIssues ?? ''),
     },
     bigProjects: Array.isArray(d.bigProjects)
       ? d.bigProjects.map((p) => mapBig(p as Record<string, unknown>))

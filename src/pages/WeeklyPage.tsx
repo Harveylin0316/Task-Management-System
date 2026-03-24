@@ -29,6 +29,8 @@ export function WeeklyPage() {
         <div className="card-body" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
           <p style={{ margin: '0 0 10px' }}>
             週報欄位會<strong>隨編輯自動同步雲端</strong>。不必從零打字：點下方按鈕可從「已完成」「今日／進行中」「等待回覆」自動產生草稿，再微調即可。
+            若要產出給主管的<strong>英文週報（GM TW 格式）</strong>，請至{' '}
+            <a href="#/bossweekly">📨 給老闆週報</a>。
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
             <button
