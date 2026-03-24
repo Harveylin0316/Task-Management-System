@@ -1,4 +1,5 @@
 import { useDashboard } from '../context/DashboardContext'
+import { DateTextAndPicker } from '../components/DateTextAndPicker'
 import { Modal } from '../components/Modal'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
@@ -186,13 +187,12 @@ export function CalendarPage() {
           </div>
           <div className="modal-field">
             <label htmlFor="dl-date">日期</label>
-            <input
+            <DateTextAndPicker
               id="dl-date"
-              className="input"
-              style={{ width: '100%' }}
               value={dDate}
-              onChange={(e) => setDDate(e.target.value)}
-              placeholder="例：2026-04-15"
+              onChange={setDDate}
+              className="input"
+              style={{ width: '100%', maxWidth: 'none' }}
             />
           </div>
           <div className="modal-field">

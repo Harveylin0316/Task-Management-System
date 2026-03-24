@@ -17,6 +17,7 @@ import {
 import { defaultData, emptyBossWeeklyReport } from '../lib/defaultData'
 import { toISODateLocal } from '../lib/dateUtils'
 import { newId } from '../lib/id'
+import { isAssigneeInDepartmentRoster } from '../lib/taskAssignment'
 import { migrateAppData } from '../lib/migrate'
 import { exampleBossWeeklyReportHen20260318 } from '../lib/bossWeeklyReportExampleData'
 import { appendDoneTasksToAccomplished } from '../lib/weeklyAccomplished'
@@ -68,7 +69,7 @@ export type DashboardContextValue = {
       weeklyCommit?: boolean
       smallProjectId?: string
     },
-  ) => void
+  ) => boolean
   updateTaskMeta: (
     section: TaskSection,
     taskId: string,
@@ -474,32 +475,51 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         weeklyCommit?: boolean
         smallProjectId?: string
       },
-    ) => {
+    ): boolean => {
       const t = title.trim()
-      if (!t) return
-      let dept =
+      if (!t) return false
+
+      const prev = dataRef.current
+      const toastT = toastRef.current
+
+      let dept: string | null =
         opts?.departmentId === undefined
           ? null
           : opts.departmentId === '' || opts.departmentId == null
             ? null
             : opts.departmentId
       let linkedProjectId: string | undefined
-      const assignee =
-        opts?.assignee != null && opts.assignee.trim() !== ''
-          ? opts.assignee.trim()
-          : undefined
+
+      if (opts?.smallProjectId) {
+        const proj = prev.projects.find((x) => x.id === opts.smallProjectId)
+        if (proj) {
+          linkedProjectId = proj.id
+          if (proj.departmentId != null) dept = proj.departmentId
+        }
+      }
+
+      const assigneeRaw = opts?.assignee?.trim() ?? ''
+
+      if (dept == null) {
+        toastT('請選擇部門')
+        return false
+      }
+      if (!assigneeRaw) {
+        toastT('請選擇該部門負責人（團隊名冊）')
+        return false
+      }
+      if (!isAssigneeInDepartmentRoster(prev.teamRoster, dept, assigneeRaw)) {
+        toastT('負責人須為該部門名冊成員，請至「部門與 KPI」維護名冊')
+        return false
+      }
+
+      const assignee = assigneeRaw
       const due =
         opts?.due != null && opts.due.trim() !== ''
           ? opts.due.trim()
           : undefined
-      setData((prev) => {
-        if (opts?.smallProjectId) {
-          const proj = prev.projects.find((x) => x.id === opts.smallProjectId)
-          if (proj) {
-            linkedProjectId = proj.id
-            if (proj.departmentId != null) dept = proj.departmentId
-          }
-        }
+
+      setData((p) => {
         const row: TaskItem = {
           id: newId(),
           title: t,
@@ -514,10 +534,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           ...(linkedProjectId ? { smallProjectId: linkedProjectId } : {}),
         }
         return {
-          ...prev,
-          [section]: [...prev[section], row],
+          ...p,
+          [section]: [...p[section], row],
         }
       })
+      return true
     },
     [],
   )
@@ -570,9 +591,28 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           : undefined
       setData((prev) => ({
         ...prev,
-        [section]: prev[section].map((t) =>
-          t.id === taskId ? { ...t, assignee: a } : t,
-        ),
+        [section]: prev[section].map((t) => {
+          if (t.id !== taskId) return t
+          if (t.departmentId == null) {
+            toastRef.current('請先選擇部門')
+            return t
+          }
+          if (!a) {
+            toastRef.current('請選擇該部門負責人')
+            return t
+          }
+          if (
+            !isAssigneeInDepartmentRoster(
+              prev.teamRoster,
+              t.departmentId,
+              a,
+            )
+          ) {
+            toastRef.current('負責人須為該部門名冊成員')
+            return t
+          }
+          return { ...t, assignee: a }
+        }),
       }))
     },
     [],
@@ -580,11 +620,27 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const updateTaskDepartment = useCallback(
     (section: TaskSection, taskId: string, departmentId: string | null) => {
+      if (departmentId == null) {
+        toastRef.current('請選擇部門')
+        return
+      }
       setData((prev) => ({
         ...prev,
         [section]: prev[section].map((t) => {
           if (t.id !== taskId) return t
-          const next: TaskItem = { ...t, departmentId }
+          let assignee = t.assignee
+          if (
+            departmentId != null &&
+            assignee &&
+            !isAssigneeInDepartmentRoster(
+              prev.teamRoster,
+              departmentId,
+              assignee,
+            )
+          ) {
+            assignee = undefined
+          }
+          const next: TaskItem = { ...t, departmentId, assignee }
           if (t.smallProjectId) {
             const p = prev.projects.find((x) => x.id === t.smallProjectId)
             if (
@@ -632,6 +688,17 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
               next.smallProjectId = proj.id
               if (proj.departmentId != null) {
                 next.departmentId = proj.departmentId
+                const asn = next.assignee
+                if (
+                  asn &&
+                  !isAssigneeInDepartmentRoster(
+                    prev.teamRoster,
+                    proj.departmentId,
+                    asn,
+                  )
+                ) {
+                  delete next.assignee
+                }
               }
             } else {
               delete next.smallProjectId
@@ -984,6 +1051,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           projects: [...prev.projects, proj],
         }
         if (!taskTitle) return next
+        const ownerName = (p.owner ?? '').trim()
         const task: TaskItem = {
           id: newId(),
           title: taskTitle,
@@ -992,6 +1060,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           created: new Date().toLocaleDateString('zh-TW'),
           departmentId: dept,
           smallProjectId: pid,
+          ...(dept &&
+          ownerName &&
+          isAssigneeInDepartmentRoster(prev.teamRoster, dept, ownerName)
+            ? { assignee: ownerName }
+            : {}),
         }
         return {
           ...next,

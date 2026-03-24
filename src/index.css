@@ -650,6 +650,30 @@ select.input {
   font-size: 11px;
 }
 
+.date-text-picker-wrap {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex: 1 1 168px;
+  min-width: 0;
+  max-width: 300px;
+}
+
+.date-text-picker-wrap .date-text-picker-text {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  font-size: 11px;
+}
+
+.date-text-picker-wrap .date-text-picker-cal {
+  flex: 0 0 auto;
+  min-width: 112px;
+  max-width: 128px;
+  padding: 4px 4px;
+  font-size: 11px;
+}
+
 .task-weekly-pill {
   flex-shrink: 0;
   border: 1px solid var(--border);

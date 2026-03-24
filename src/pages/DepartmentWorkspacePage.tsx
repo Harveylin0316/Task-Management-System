@@ -8,8 +8,10 @@ import {
 import { useDashboard } from '../context/DashboardContext'
 import { TaskRows } from '../components/TaskRows'
 import { Modal } from '../components/Modal'
+import { DateTextAndPicker } from '../components/DateTextAndPicker'
+import { RosterMemberSelect } from '../components/RosterMemberSelect'
 import { parseParticipantNames } from '../lib/parseParticipants'
-import { rosterDatalistIdForDepartment } from '../lib/rosterDatalist'
+import { isAssigneeInDepartmentRoster } from '../lib/taskAssignment'
 import type { SmallProject, TaskSection } from '../lib/types'
 
 const SECTION_LABEL: Record<'today' | 'active' | 'someday', string> = {
@@ -22,12 +24,10 @@ function DeptProjectCard({
   project,
   departmentId,
   projectOptions,
-  rosterListId,
 }: {
   project: SmallProject
   departmentId: string
   projectOptions: { id: string; name: string }[]
-  rosterListId: string
 }) {
   const editFormId = `wm-deptws-proj-edit-${project.id}`
   const {
@@ -75,12 +75,12 @@ function DeptProjectCard({
       toast('請輸入任務內容')
       return
     }
-    addTask(sec, t, {
+    const ok = addTask(sec, t, {
       departmentId,
-      assignee: assignee || undefined,
+      assignee,
       smallProjectId: project.id,
     })
-    setTitle('')
+    if (ok) setTitle('')
   }
 
   return (
@@ -161,6 +161,7 @@ function DeptProjectCard({
                   items={items}
                   section={s}
                   lockDepartment
+                  lockedDepartmentId={departmentId}
                   projectLinkOptions={projectOptions}
                   showInlineTitleEdit
                 />
@@ -186,12 +187,12 @@ function DeptProjectCard({
             <option value="active">進行中</option>
             <option value="someday">日後</option>
           </select>
-          <input
-            className="input task-assignee-input"
-            placeholder="負責人"
-            list={rosterListId}
+          <RosterMemberSelect
+            roster={data.teamRoster}
+            departmentId={departmentId}
             value={assignee}
-            onChange={(e) => setAssignee(e.target.value)}
+            onChange={setAssignee}
+            className="input task-assignee-input"
           />
           <input
             className="input"
@@ -231,10 +232,22 @@ function DeptProjectCard({
           id={editFormId}
           onSubmit={(e: FormEvent<HTMLFormElement>) => {
             e.preventDefault()
+            const ow = epOwner.trim()
+            if (
+              ow &&
+              !isAssigneeInDepartmentRoster(
+                data.teamRoster,
+                departmentId,
+                ow,
+              )
+            ) {
+              toast('負責人須為本部門名冊成員')
+              return
+            }
             updateSmallProject(project.id, {
               name: epName.trim(),
               due: epDue.trim(),
-              owner: epOwner.trim(),
+              owner: ow,
               participants: parseParticipantNames(epParticipantsRaw),
             })
             setEditOpen(false)
@@ -252,20 +265,23 @@ function DeptProjectCard({
           </div>
           <div className="modal-field">
             <label>截止日</label>
-            <input
-              className="input"
-              style={{ width: '100%' }}
+            <DateTextAndPicker
               value={epDue}
-              onChange={(e) => setEpDue(e.target.value)}
+              onChange={setEpDue}
+              className="input"
+              style={{ width: '100%', maxWidth: 'none' }}
             />
           </div>
           <div className="modal-field">
-            <label>負責人</label>
-            <input
+            <label>負責人（名冊，可留空）</label>
+            <RosterMemberSelect
+              roster={data.teamRoster}
+              departmentId={departmentId}
+              value={epOwner}
+              onChange={setEpOwner}
               className="input"
               style={{ width: '100%' }}
-              value={epOwner}
-              onChange={(e) => setEpOwner(e.target.value)}
+              allowEmpty
             />
           </div>
           <div className="modal-field">
@@ -340,8 +356,6 @@ export function DepartmentWorkspacePage() {
     ? data.departments.find((d) => d.id === deptId) ?? null
     : null
 
-  const rosterListId = rosterDatalistIdForDepartment(deptId, data.teamRoster)
-
   const projectsHere = useMemo(
     () => data.projects.filter((p) => p.departmentId === deptId),
     [data.projects, deptId],
@@ -374,6 +388,7 @@ export function DepartmentWorkspacePage() {
 
   const submitNewProject = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!deptId) return
     const n = pName.trim()
     const ft = pFirstTask.trim()
     if (!n) {
@@ -384,10 +399,19 @@ export function DepartmentWorkspacePage() {
       toast('請填「第一個任務」：專案應至少有一項任務')
       return
     }
+    const owner = pOwner.trim()
+    if (!owner) {
+      toast('請選擇專案負責人（本部門名冊）')
+      return
+    }
+    if (!isAssigneeInDepartmentRoster(data.teamRoster, deptId, owner)) {
+      toast('負責人須為本部門名冊成員')
+      return
+    }
     addSmallProject({
       name: n,
       due: pDue,
-      owner: pOwner,
+      owner,
       departmentId: deptId,
       participants: parseParticipantNames(pParticipantsRaw),
       initialTaskTitle: ft,
@@ -530,6 +554,7 @@ export function DepartmentWorkspacePage() {
                         items={items}
                         section={sec}
                         lockDepartment
+                        lockedDepartmentId={deptId}
                         projectLinkOptions={projectOptions}
                         showInlineTitleEdit
                       />
@@ -539,12 +564,12 @@ export function DepartmentWorkspacePage() {
                       </p>
                     )}
                     <div className="add-task-row">
-                      <input
-                        className="input task-assignee-input"
-                        placeholder="負責人"
-                        list={rosterListId}
+                      <RosterMemberSelect
+                        roster={data.teamRoster}
+                        departmentId={deptId}
                         value={assigneeVal}
-                        onChange={(e) => setAssigneeVal(e.target.value)}
+                        onChange={setAssigneeVal}
+                        className="input task-assignee-input"
                       />
                       <input
                         className="input"
@@ -555,11 +580,11 @@ export function DepartmentWorkspacePage() {
                           if (e.key === 'Enter') {
                             const t = inputVal.trim()
                             if (t) {
-                              addTask(sec, t, {
+                              const ok = addTask(sec, t, {
                                 departmentId: deptId,
-                                assignee: assigneeVal || undefined,
+                                assignee: assigneeVal,
                               })
-                              setInputVal('')
+                              if (ok) setInputVal('')
                             }
                           }
                         }}
@@ -570,11 +595,11 @@ export function DepartmentWorkspacePage() {
                         onClick={() => {
                           const t = inputVal.trim()
                           if (!t) return
-                          addTask(sec, t, {
+                          const ok = addTask(sec, t, {
                             departmentId: deptId,
-                            assignee: assigneeVal || undefined,
+                            assignee: assigneeVal,
                           })
-                          setInputVal('')
+                          if (ok) setInputVal('')
                         }}
                       >
                         新增
@@ -641,7 +666,6 @@ export function DepartmentWorkspacePage() {
                 project={p}
                 departmentId={deptId}
                 projectOptions={projectOptions}
-                rosterListId={rosterListId}
               />
             ))
           )}
@@ -707,20 +731,22 @@ export function DepartmentWorkspacePage() {
         </div>
         <div className="modal-field">
           <label>專案截止日（可留空）</label>
-          <input
-            className="input"
-            style={{ width: '100%' }}
+          <DateTextAndPicker
             value={pDue}
-            onChange={(e) => setPDue(e.target.value)}
+            onChange={setPDue}
+            className="input"
+            style={{ width: '100%', maxWidth: 'none' }}
           />
         </div>
         <div className="modal-field">
-          <label>專案負責人（可留空）</label>
-          <input
+          <label>專案負責人（必填，本部門名冊）</label>
+          <RosterMemberSelect
+            roster={data.teamRoster}
+            departmentId={deptId}
+            value={pOwner}
+            onChange={setPOwner}
             className="input"
             style={{ width: '100%' }}
-            value={pOwner}
-            onChange={(e) => setPOwner(e.target.value)}
           />
         </div>
         <div className="modal-field">

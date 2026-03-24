@@ -3,7 +3,10 @@ import { useDashboard } from '../context/DashboardContext'
 import { calcBigProjectProgress } from '../lib/progress'
 import type { BigProjectStatus } from '../lib/types'
 import { Modal } from '../components/Modal'
+import { DateTextAndPicker } from '../components/DateTextAndPicker'
 import { DepartmentSelect } from '../components/DepartmentSelect'
+import { RosterMemberSelect } from '../components/RosterMemberSelect'
+import { isAssigneeInDepartmentRoster } from '../lib/taskAssignment'
 
 const AVATAR_COLORS = [
   '#6366f1',
@@ -50,6 +53,7 @@ export function ProjectsPage() {
     removeSubtask,
     addRisk,
     removeRisk,
+    toast,
   } = useDashboard()
 
   const bp = data.bigProjects || []
@@ -106,11 +110,24 @@ export function ProjectsPage() {
 
   const submitBig = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (bfDeptId == null) {
+      toast('請選擇歸屬部門')
+      return
+    }
+    const pm = bfPm.trim()
+    if (!pm) {
+      toast('請選擇 PM（該部門名冊）')
+      return
+    }
+    if (!isAssigneeInDepartmentRoster(data.teamRoster, bfDeptId, pm)) {
+      toast('PM 須為該部門名冊成員')
+      return
+    }
     addBigProject({
       name: bfName,
       goal: bfGoal,
       due: bfDue,
-      pm: bfPm,
+      pm,
       desc: bfDesc,
       departmentId: bfDeptId,
     })
@@ -126,10 +143,20 @@ export function ProjectsPage() {
   const submitMilestoneModal = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!projectId) return
+    const mo = msOwner.trim()
+    const pd = proj?.departmentId ?? null
+    if (
+      pd &&
+      mo &&
+      !isAssigneeInDepartmentRoster(data.teamRoster, pd, mo)
+    ) {
+      toast('負責人須為專案部門名冊成員')
+      return
+    }
     addMilestone(projectId, {
       title: msTitle,
       date: msDate,
-      owner: msOwner,
+      owner: mo,
     })
     setMsTitle('')
     setMsDate('')
@@ -154,9 +181,19 @@ export function ProjectsPage() {
   const submitSubtaskModal = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!projectId) return
+    const so = stOwner.trim()
+    const pd = proj?.departmentId ?? null
+    if (
+      pd &&
+      so &&
+      !isAssigneeInDepartmentRoster(data.teamRoster, pd, so)
+    ) {
+      toast('負責人須為專案部門名冊成員')
+      return
+    }
     addSubtask(projectId, {
       title: stTitle,
-      owner: stOwner,
+      owner: so,
       due: stDue,
     })
     setStTitle('')
@@ -168,11 +205,21 @@ export function ProjectsPage() {
   const submitRiskModal = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!projectId) return
+    const ro = rkOwner.trim()
+    const pd = proj?.departmentId ?? null
+    if (
+      pd &&
+      ro &&
+      !isAssigneeInDepartmentRoster(data.teamRoster, pd, ro)
+    ) {
+      toast('負責人須為專案部門名冊成員')
+      return
+    }
     addRisk(projectId, {
       title: rkTitle,
       level: rkLevel,
       desc: rkDesc,
-      owner: rkOwner,
+      owner: ro,
     })
     setRkTitle('')
     setRkLevel('mid')
@@ -744,23 +791,12 @@ export function ProjectsPage() {
         </div>
         <div className="modal-field">
           <label htmlFor="bf-due">預計完成日</label>
-          <input
+          <DateTextAndPicker
             id="bf-due"
-            className="input"
-            style={{ width: '100%' }}
             value={bfDue}
-            onChange={(e) => setBfDue(e.target.value)}
-            placeholder="例：2026-06-30"
-          />
-        </div>
-        <div className="modal-field">
-          <label htmlFor="bf-pm">PM</label>
-          <input
-            id="bf-pm"
+            onChange={setBfDue}
             className="input"
-            style={{ width: '100%' }}
-            value={bfPm}
-            onChange={(e) => setBfPm(e.target.value)}
+            style={{ width: '100%', maxWidth: 'none' }}
           />
         </div>
         <div className="modal-field">
@@ -769,8 +805,24 @@ export function ProjectsPage() {
             id="bf-dept"
             departments={data.departments}
             value={bfDeptId}
-            onChange={setBfDeptId}
+            onChange={(id) => {
+              setBfDeptId(id)
+              setBfPm('')
+            }}
             className="input"
+            includePersonal={false}
+          />
+        </div>
+        <div className="modal-field">
+          <label htmlFor="bf-pm">PM（該部門名冊）</label>
+          <RosterMemberSelect
+            id="bf-pm"
+            roster={data.teamRoster}
+            departmentId={bfDeptId}
+            value={bfPm}
+            onChange={setBfPm}
+            className="input"
+            style={{ width: '100%' }}
           />
         </div>
         <div className="modal-field">
@@ -817,21 +869,23 @@ export function ProjectsPage() {
         </div>
         <div className="modal-field">
           <label>目標日期</label>
-          <input
-            className="input"
-            style={{ width: '100%' }}
+          <DateTextAndPicker
             value={msDate}
-            onChange={(e) => setMsDate(e.target.value)}
-            placeholder="例：2026-05-01"
+            onChange={setMsDate}
+            className="input"
+            style={{ width: '100%', maxWidth: 'none' }}
           />
         </div>
         <div className="modal-field">
-          <label>負責人（可留空）</label>
-          <input
+          <label>負責人（名冊，可留空）</label>
+          <RosterMemberSelect
+            roster={data.teamRoster}
+            departmentId={proj?.departmentId ?? null}
+            value={msOwner}
+            onChange={setMsOwner}
             className="input"
             style={{ width: '100%' }}
-            value={msOwner}
-            onChange={(e) => setMsOwner(e.target.value)}
+            allowEmpty
           />
         </div>
         </form>
@@ -917,21 +971,24 @@ export function ProjectsPage() {
           />
         </div>
         <div className="modal-field">
-          <label>負責人（可留空）</label>
-          <input
+          <label>負責人（名冊，可留空）</label>
+          <RosterMemberSelect
+            roster={data.teamRoster}
+            departmentId={proj?.departmentId ?? null}
+            value={stOwner}
+            onChange={setStOwner}
             className="input"
             style={{ width: '100%' }}
-            value={stOwner}
-            onChange={(e) => setStOwner(e.target.value)}
+            allowEmpty
           />
         </div>
         <div className="modal-field">
           <label>截止日（可留空）</label>
-          <input
-            className="input"
-            style={{ width: '100%' }}
+          <DateTextAndPicker
             value={stDue}
-            onChange={(e) => setStDue(e.target.value)}
+            onChange={setStDue}
+            className="input"
+            style={{ width: '100%', maxWidth: 'none' }}
           />
         </div>
         </form>
@@ -991,12 +1048,15 @@ export function ProjectsPage() {
           />
         </div>
         <div className="modal-field">
-          <label>負責人（可留空）</label>
-          <input
+          <label>負責人（名冊，可留空）</label>
+          <RosterMemberSelect
+            roster={data.teamRoster}
+            departmentId={proj?.departmentId ?? null}
+            value={rkOwner}
+            onChange={setRkOwner}
             className="input"
             style={{ width: '100%' }}
-            value={rkOwner}
-            onChange={(e) => setRkOwner(e.target.value)}
+            allowEmpty
           />
         </div>
         </form>

@@ -3,9 +3,11 @@ import { useDashboard } from '../context/DashboardContext'
 import { Modal } from '../components/Modal'
 import { TaskRows } from '../components/TaskRows'
 import { ScopeFilterBar } from '../components/ScopeFilterBar'
+import { DateTextAndPicker } from '../components/DateTextAndPicker'
 import { DepartmentSelect } from '../components/DepartmentSelect'
+import { RosterMemberSelect } from '../components/RosterMemberSelect'
 import { parseParticipantNames } from '../lib/parseParticipants'
-import { rosterDatalistIdForDepartment } from '../lib/rosterDatalist'
+import { isAssigneeInDepartmentRoster } from '../lib/taskAssignment'
 import { taskMatchesScope, type TaskScopeFilter } from '../lib/taskScope'
 
 export function TasksPage() {
@@ -17,6 +19,7 @@ export function TasksPage() {
     updateSmallProject,
     removeSmallProject,
     updateSmallProjectProgress,
+    toast,
   } = useDashboard()
   const [activeIn, setActiveIn] = useState('')
   const [somedayIn, setSomedayIn] = useState('')
@@ -42,12 +45,6 @@ export function TasksPage() {
   const [deptActive, setDeptActive] = useState<string | null>(null)
   const [deptSomeday, setDeptSomeday] = useState<string | null>(null)
   const [onlyWeeklyCommit, setOnlyWeeklyCommit] = useState(false)
-
-  const listActive = rosterDatalistIdForDepartment(deptActive, data.teamRoster)
-  const listSomeday = rosterDatalistIdForDepartment(
-    deptSomeday,
-    data.teamRoster,
-  )
 
   const activeF = useMemo(
     () =>
@@ -80,6 +77,21 @@ export function TasksPage() {
   const submitProject = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const ft = pFirstTask.trim()
+    if (ft) {
+      if (pDeptId == null) {
+        toast('建立第一筆任務前請選擇專案歸屬部門')
+        return
+      }
+      const owner = pOwner.trim()
+      if (!owner) {
+        toast('請選擇專案負責人（該部門名冊）')
+        return
+      }
+      if (!isAssigneeInDepartmentRoster(data.teamRoster, pDeptId, owner)) {
+        toast('負責人須為該部門名冊成員')
+        return
+      }
+    }
     addSmallProject({
       name: pName,
       due: pDue,
@@ -114,10 +126,19 @@ export function TasksPage() {
   const saveEditProject = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!editProjectId) return
+    const ow = epOwner.trim()
+    if (
+      epDeptId != null &&
+      ow &&
+      !isAssigneeInDepartmentRoster(data.teamRoster, epDeptId, ow)
+    ) {
+      toast('負責人須為該部門名冊成員')
+      return
+    }
     updateSmallProject(editProjectId, {
       name: epName.trim(),
       due: epDue.trim(),
-      owner: epOwner.trim(),
+      owner: ow,
       departmentId: epDeptId,
       participants: parseParticipantNames(epParticipantsRaw),
     })
@@ -162,15 +183,19 @@ export function TasksPage() {
               <DepartmentSelect
                 departments={data.departments}
                 value={deptActive}
-                onChange={setDeptActive}
+                onChange={(id) => {
+                  setDeptActive(id)
+                  setAssigneeActive('')
+                }}
                 className="input"
+                includePersonal={false}
               />
-              <input
-                className="input task-assignee-input"
-                placeholder="負責人"
-                list={listActive}
+              <RosterMemberSelect
+                roster={data.teamRoster}
+                departmentId={deptActive}
                 value={assigneeActive}
-                onChange={(e) => setAssigneeActive(e.target.value)}
+                onChange={setAssigneeActive}
+                className="input task-assignee-input"
               />
               <input
                 className="input"
@@ -179,11 +204,11 @@ export function TasksPage() {
                 onChange={(e) => setActiveIn(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    addTask('active', activeIn, {
+                    const ok = addTask('active', activeIn, {
                       departmentId: deptActive,
                       assignee: assigneeActive,
                     })
-                    setActiveIn('')
+                    if (ok) setActiveIn('')
                   }
                 }}
               />
@@ -191,11 +216,11 @@ export function TasksPage() {
                 type="button"
                 className="btn btn-primary"
                 onClick={() => {
-                  addTask('active', activeIn, {
+                  const ok = addTask('active', activeIn, {
                     departmentId: deptActive,
                     assignee: assigneeActive,
                   })
-                  setActiveIn('')
+                  if (ok) setActiveIn('')
                 }}
               >
                 ＋
@@ -219,15 +244,19 @@ export function TasksPage() {
               <DepartmentSelect
                 departments={data.departments}
                 value={deptSomeday}
-                onChange={setDeptSomeday}
+                onChange={(id) => {
+                  setDeptSomeday(id)
+                  setAssigneeSomeday('')
+                }}
                 className="input"
+                includePersonal={false}
               />
-              <input
-                className="input task-assignee-input"
-                placeholder="負責人"
-                list={listSomeday}
+              <RosterMemberSelect
+                roster={data.teamRoster}
+                departmentId={deptSomeday}
                 value={assigneeSomeday}
-                onChange={(e) => setAssigneeSomeday(e.target.value)}
+                onChange={setAssigneeSomeday}
+                className="input task-assignee-input"
               />
               <input
                 className="input"
@@ -236,11 +265,11 @@ export function TasksPage() {
                 onChange={(e) => setSomedayIn(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    addTask('someday', somedayIn, {
+                    const ok = addTask('someday', somedayIn, {
                       departmentId: deptSomeday,
                       assignee: assigneeSomeday,
                     })
-                    setSomedayIn('')
+                    if (ok) setSomedayIn('')
                   }
                 }}
               />
@@ -248,11 +277,11 @@ export function TasksPage() {
                 type="button"
                 className="btn"
                 onClick={() => {
-                  addTask('someday', somedayIn, {
+                  const ok = addTask('someday', somedayIn, {
                     departmentId: deptSomeday,
                     assignee: assigneeSomeday,
                   })
-                  setSomedayIn('')
+                  if (ok) setSomedayIn('')
                 }}
               >
                 ＋
@@ -439,8 +468,12 @@ export function TasksPage() {
             id="sp-dept"
             departments={data.departments}
             value={pDeptId}
-            onChange={setPDeptId}
+            onChange={(id) => {
+              setPDeptId(id)
+              setPOwner('')
+            }}
             className="input"
+            includePersonal={false}
           />
         </div>
         <div className="modal-field">
@@ -456,23 +489,27 @@ export function TasksPage() {
         </div>
         <div className="modal-field">
           <label htmlFor="sp-due">截止日（可留空）</label>
-          <input
+          <DateTextAndPicker
             id="sp-due"
-            className="input"
-            style={{ width: '100%' }}
             value={pDue}
-            onChange={(e) => setPDue(e.target.value)}
-            placeholder="例：2026/04/30"
+            onChange={setPDue}
+            className="input"
+            style={{ width: '100%', maxWidth: 'none' }}
           />
         </div>
         <div className="modal-field">
-          <label htmlFor="sp-owner">負責人（可留空）</label>
-          <input
+          <label htmlFor="sp-owner">
+            負責人（有填「第一個任務」時必填，須為該部門名冊）
+          </label>
+          <RosterMemberSelect
             id="sp-owner"
+            roster={data.teamRoster}
+            departmentId={pDeptId}
+            value={pOwner}
+            onChange={setPOwner}
             className="input"
             style={{ width: '100%' }}
-            value={pOwner}
-            onChange={(e) => setPOwner(e.target.value)}
+            allowEmpty
           />
         </div>
         </form>
@@ -512,8 +549,12 @@ export function TasksPage() {
           <DepartmentSelect
             departments={data.departments}
             value={epDeptId}
-            onChange={setEpDeptId}
+            onChange={(id) => {
+              setEpDeptId(id)
+              setEpOwner('')
+            }}
             className="input"
+            includePersonal={false}
           />
         </div>
         <div className="modal-field">
@@ -527,20 +568,23 @@ export function TasksPage() {
         </div>
         <div className="modal-field">
           <label>截止日</label>
-          <input
-            className="input"
-            style={{ width: '100%' }}
+          <DateTextAndPicker
             value={epDue}
-            onChange={(e) => setEpDue(e.target.value)}
+            onChange={setEpDue}
+            className="input"
+            style={{ width: '100%', maxWidth: 'none' }}
           />
         </div>
         <div className="modal-field">
-          <label>負責人</label>
-          <input
+          <label>負責人（名冊）</label>
+          <RosterMemberSelect
+            roster={data.teamRoster}
+            departmentId={epDeptId}
+            value={epOwner}
+            onChange={setEpOwner}
             className="input"
             style={{ width: '100%' }}
-            value={epOwner}
-            onChange={(e) => setEpOwner(e.target.value)}
+            allowEmpty
           />
         </div>
         </form>

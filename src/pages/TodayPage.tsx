@@ -2,13 +2,13 @@ import { useMemo, useState } from 'react'
 import { useDashboard } from '../context/DashboardContext'
 import { TaskRows } from '../components/TaskRows'
 import { ScopeFilterBar } from '../components/ScopeFilterBar'
+import { DateTextAndPicker } from '../components/DateTextAndPicker'
 import { DepartmentSelect } from '../components/DepartmentSelect'
+import { RosterMemberSelect } from '../components/RosterMemberSelect'
 import {
   expectedReplyOverdue,
-  toDateInputValue,
   waitingDaysElapsed,
 } from '../lib/dateUtils'
-import { rosterDatalistIdForDepartment } from '../lib/rosterDatalist'
 import { taskMatchesScope, type TaskScopeFilter } from '../lib/taskScope'
 
 export function TodayPage() {
@@ -19,11 +19,6 @@ export function TodayPage() {
   const [newTaskDept, setNewTaskDept] = useState<string | null>(null)
   const [todayAssignee, setTodayAssignee] = useState('')
   const [scopeFilter, setScopeFilter] = useState<TaskScopeFilter>('all')
-
-  const assigneeListToday = rosterDatalistIdForDepartment(
-    newTaskDept,
-    data.teamRoster,
-  )
 
   const todayFiltered = useMemo(
     () => data.today.filter((t) => taskMatchesScope(t, scopeFilter)),
@@ -79,15 +74,19 @@ export function TodayPage() {
               <DepartmentSelect
                 departments={data.departments}
                 value={newTaskDept}
-                onChange={setNewTaskDept}
+                onChange={(id) => {
+                  setNewTaskDept(id)
+                  setTodayAssignee('')
+                }}
                 className="input"
+                includePersonal={false}
               />
-              <input
-                className="input task-assignee-input"
-                placeholder="負責人"
-                list={assigneeListToday}
+              <RosterMemberSelect
+                roster={data.teamRoster}
+                departmentId={newTaskDept}
                 value={todayAssignee}
-                onChange={(e) => setTodayAssignee(e.target.value)}
+                onChange={setTodayAssignee}
+                className="input task-assignee-input"
               />
               <input
                 className="input"
@@ -96,11 +95,11 @@ export function TodayPage() {
                 onChange={(e) => setTodayIn(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    addTask('today', todayIn, {
+                    const ok = addTask('today', todayIn, {
                       departmentId: newTaskDept,
                       assignee: todayAssignee,
                     })
-                    setTodayIn('')
+                    if (ok) setTodayIn('')
                   }
                 }}
               />
@@ -108,11 +107,11 @@ export function TodayPage() {
                 type="button"
                 className="btn btn-primary"
                 onClick={() => {
-                  addTask('today', todayIn, {
+                  const ok = addTask('today', todayIn, {
                     departmentId: newTaskDept,
                     assignee: todayAssignee,
                   })
-                  setTodayIn('')
+                  if (ok) setTodayIn('')
                 }}
               >
                 新增
@@ -162,16 +161,15 @@ export function TodayPage() {
                       <div className="waiting-expected-row">
                         <label className="waiting-expected-label">
                           預期回覆
-                          <input
-                            type="date"
+                          <DateTextAndPicker
                             className="input waiting-expected-input"
-                            value={toDateInputValue(w.expectedBy)}
-                            onChange={(e) =>
+                            value={w.expectedBy ?? ''}
+                            onChange={(v) =>
                               updateWaitingItem(w.id, {
-                                expectedBy: e.target.value || undefined,
+                                expectedBy: v || undefined,
                               })
                             }
-                            aria-label="預期回覆日"
+                            textPlaceholder="文字或選日"
                           />
                         </label>
                       </div>

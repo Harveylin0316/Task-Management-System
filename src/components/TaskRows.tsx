@@ -1,11 +1,8 @@
 import { useDashboard } from '../context/DashboardContext'
+import { DateTextAndPicker } from './DateTextAndPicker'
 import { DepartmentSelect } from './DepartmentSelect'
-import {
-  dueBadgeLabel,
-  dueKindAndOffset,
-  toDateInputValue,
-} from '../lib/dateUtils'
-import { rosterDatalistIdForDepartment } from '../lib/rosterDatalist'
+import { RosterMemberSelect } from './RosterMemberSelect'
+import { dueBadgeLabel, dueKindAndOffset } from '../lib/dateUtils'
 import type { TaskItem, TaskSection } from '../lib/types'
 
 export function TaskRows({
@@ -13,6 +10,8 @@ export function TaskRows({
   section,
   showDepartmentPicker = true,
   lockDepartment = false,
+  /** 與 lockDepartment 併用：篩選名冊負責人（例部門工作台目前部門） */
+  lockedDepartmentId = null,
   projectLinkOptions,
   showInlineTitleEdit = false,
 }: {
@@ -22,6 +21,7 @@ export function TaskRows({
   showDepartmentPicker?: boolean
   /** 為 true 時不顯示部門下拉（部門工作台已鎖定部門） */
   lockDepartment?: boolean
+  lockedDepartmentId?: string | null
   /** 若提供，每列可將任務掛到部門內專案或改為「不屬專案」 */
   projectLinkOptions?: { id: string; name: string }[]
   /** 可直接編輯標題（blur 後寫入） */
@@ -41,6 +41,11 @@ export function TaskRows({
 
   const showDeptSelect = showDepartmentPicker && !lockDepartment && section !== 'done'
 
+  const deptForRoster = (item: TaskItem) =>
+    lockDepartment
+      ? (lockedDepartmentId ?? item.departmentId)
+      : item.departmentId
+
   if (!items.length) {
     return (
       <div className="empty">
@@ -54,10 +59,7 @@ export function TaskRows({
     <>
       {items.map((item) => {
         const { kind: dueKind, daysUntil } = dueKindAndOffset(item.due)
-        const assigneeListId = rosterDatalistIdForDepartment(
-          item.departmentId,
-          data.teamRoster,
-        )
+        const rosterDeptId = deptForRoster(item)
         return (
         <div key={item.id} className="task-item">
           <div className={`priority-dot p-${item.priority || 'mid'}`} />
@@ -156,31 +158,6 @@ export function TaskRows({
                       ))}
                     </select>
                   ) : null}
-                  <input
-                    type="date"
-                    className="input task-due-input"
-                    title="截止日"
-                    value={toDateInputValue(item.due)}
-                    onChange={(e) =>
-                      updateTaskDue(
-                        section,
-                        item.id,
-                        e.target.value || undefined,
-                      )
-                    }
-                    aria-label="截止日"
-                  />
-                  <input
-                    type="text"
-                    className="input task-assignee-input"
-                    placeholder="負責人"
-                    list={assigneeListId}
-                    value={item.assignee ?? ''}
-                    onChange={(e) =>
-                      updateTaskAssignee(section, item.id, e.target.value)
-                    }
-                    aria-label="任務負責人"
-                  />
                   {showDeptSelect ? (
                     <DepartmentSelect
                       departments={data.departments}
@@ -189,8 +166,29 @@ export function TaskRows({
                         updateTaskDepartment(section, item.id, deptId)
                       }
                       className="input task-dept-select"
+                      includePersonal={false}
                     />
                   ) : null}
+                  <RosterMemberSelect
+                    roster={data.teamRoster}
+                    departmentId={rosterDeptId}
+                    value={item.assignee ?? ''}
+                    onChange={(name) =>
+                      updateTaskAssignee(
+                        section,
+                        item.id,
+                        name || undefined,
+                      )
+                    }
+                    className="input task-assignee-input"
+                  />
+                  <DateTextAndPicker
+                    className="input task-due-input"
+                    value={item.due ?? ''}
+                    onChange={(v) =>
+                      updateTaskDue(section, item.id, v || undefined)
+                    }
+                  />
                 </>
               ) : null}
             </div>

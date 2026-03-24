@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { useDashboard } from '../context/DashboardContext'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
-import { rosterDatalistIdForDepartment } from '../lib/rosterDatalist'
 import { Modal } from './Modal'
+import { DateTextAndPicker } from './DateTextAndPicker'
 import { DepartmentSelect } from './DepartmentSelect'
+import { RosterMemberSelect } from './RosterMemberSelect'
 
 export function Header() {
   const {
@@ -25,11 +26,6 @@ export function Header() {
   const [addDue, setAddDue] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const addAssigneeListId = rosterDatalistIdForDepartment(
-    addTaskDept,
-    data.teamRoster,
-  )
-
   const headerDate = useMemo(() => {
     const now = new Date()
     const days = ['日', '一', '二', '三', '四', '五', '六']
@@ -42,13 +38,15 @@ export function Header() {
     e.preventDefault()
     const t = addTitle.trim()
     if (!t) return
-    addTask(addSection, t, {
+    const ok = addTask(addSection, t, {
       departmentId: addTaskDept,
       assignee: addAssignee,
       due: addDue || undefined,
     })
+    if (!ok) return
     setAddTitle('')
     setAddDue('')
+    setAddAssignee('')
     setAddOpen(false)
     toast('任務已新增')
   }
@@ -190,36 +188,39 @@ export function Header() {
             </select>
           </div>
           <div className="modal-field">
-            <label htmlFor="add-task-dept">歸屬</label>
+            <label htmlFor="add-task-dept">歸屬部門</label>
             <DepartmentSelect
               id="add-task-dept"
               departments={data.departments}
               value={addTaskDept}
-              onChange={setAddTaskDept}
+              onChange={(id) => {
+                setAddTaskDept(id)
+                setAddAssignee('')
+              }}
               className="input"
+              includePersonal={false}
             />
           </div>
           <div className="modal-field">
-            <label htmlFor="add-task-assignee">負責人（可留空）</label>
-            <input
+            <label htmlFor="add-task-assignee">負責人（該部門名冊）</label>
+            <RosterMemberSelect
               id="add-task-assignee"
+              roster={data.teamRoster}
+              departmentId={addTaskDept}
+              value={addAssignee}
+              onChange={setAddAssignee}
               className="input"
               style={{ width: '100%' }}
-              list={addAssigneeListId}
-              value={addAssignee}
-              onChange={(e) => setAddAssignee(e.target.value)}
-              placeholder="依部門篩選名冊建議"
             />
           </div>
           <div className="modal-field">
             <label htmlFor="add-task-due">截止日（可留空）</label>
-            <input
+            <DateTextAndPicker
               id="add-task-due"
-              type="date"
-              className="input"
-              style={{ width: '100%' }}
               value={addDue}
-              onChange={(e) => setAddDue(e.target.value)}
+              onChange={setAddDue}
+              className="input"
+              style={{ width: '100%', maxWidth: 'none' }}
             />
           </div>
         </form>
