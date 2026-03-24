@@ -223,6 +223,8 @@ export function createSupabaseAsyncDataSource(
   let needsEmail = false
   /** 上次 load 是否已執行過 loadFromCloud（成功讀寫雲端列） */
   let cloudHydratedAtLastLoad = false
+  /** 串行 save，避免 debounce 與 pagehide 兩次 upsert 交錯造成最後寫入蓋掉名冊 */
+  let saveChain: Promise<AppData | undefined> = Promise.resolve(undefined)
 
   return {
     needsEmailToReachCloud: () => needsEmail,
@@ -271,40 +273,55 @@ export function createSupabaseAsyncDataSource(
     },
 
     async save(data: AppData) {
-      const {
-        data: { session },
-      } = await client.auth.getSession()
-      if (session?.user?.id) {
-        const repaired = await upsertPayload(client, session.user.id, data)
-        syncSkipAnonymousSessionFlag(data.ui)
-        return repaired
-      }
-
-      if (shouldSkipAnonymousSignIn()) {
-        localOnly.save(data)
-        return undefined
-      }
-
-      const { error } = await client.auth.signInAnonymously()
-      if (!error) {
-        const {
-          data: { session: s2 },
+      const run = async (): Promise<AppData | undefined> => {
+        let {
+          data: { session },
         } = await client.auth.getSession()
-        if (s2?.user?.id) {
-          const repaired = await upsertPayload(client, s2.user.id, data)
+        if (!session?.user?.id) {
+          await client.auth.refreshSession().catch(() => {})
+          ;({
+            data: { session },
+          } = await client.auth.getSession())
+        }
+        if (session?.user?.id) {
+          const repaired = await upsertPayload(client, session.user.id, data)
           syncSkipAnonymousSessionFlag(data.ui)
           return repaired
         }
-      }
 
-      if (error && isAnonymousBlocked(error)) {
-        rememberAnonymousDisabledByApi()
-        localOnly.save(data)
+        if (shouldSkipAnonymousSignIn()) {
+          localOnly.save(data)
+          return undefined
+        }
+
+        const { error } = await client.auth.signInAnonymously()
+        if (!error) {
+          const {
+            data: { session: s2 },
+          } = await client.auth.getSession()
+          if (s2?.user?.id) {
+            const repaired = await upsertPayload(client, s2.user.id, data)
+            syncSkipAnonymousSessionFlag(data.ui)
+            return repaired
+          }
+        }
+
+        if (error && isAnonymousBlocked(error)) {
+          rememberAnonymousDisabledByApi()
+          localOnly.save(data)
+          return undefined
+        }
+
+        if (error) throw explainAnonymousAuthFailure(error)
         return undefined
       }
 
-      if (error) throw explainAnonymousAuthFailure(error)
-      return undefined
+      const next = saveChain.then(() => run())
+      saveChain = next.then(
+        () => undefined,
+        () => undefined,
+      )
+      return next
     },
   }
 }
