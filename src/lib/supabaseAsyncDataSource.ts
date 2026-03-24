@@ -8,13 +8,32 @@ import { defaultData } from './defaultData'
 import { migrateAppData } from './migrate'
 import type { AppData } from './types'
 
+function authErrorCode(error: { message: string; code?: string }): string {
+  return typeof error.code === 'string' ? error.code : ''
+}
+
+function explainAnonymousAuthFailure(error: {
+  message: string
+  code?: string
+}): Error {
+  const code = authErrorCode(error)
+  const base = code ? `${error.message} [${code}]` : error.message
+  const looksDisabled =
+    /anonymous sign-ins are disabled/i.test(error.message) ||
+    code === 'anonymous_provider_disabled'
+  if (!looksDisabled) return new Error(base)
+  return new Error(
+    `${base} — 後台已開仍出現時請檢查：① .env 的網址是否與此專案相同（錯專案會一直失敗）；② Providers 頁改完務必按 Save；③ Authentication 總覽開啟「Allow new users to sign up」（匿名也會走 /signup）；④ Bot/CAPTCHA 若強制驗證，需在程式傳 captchaToken 或暫時關閉；⑤ 等 1～2 分鐘後硬重新整理。`,
+  )
+}
+
 async function ensureSession(client: SupabaseClient): Promise<void> {
   const {
     data: { session },
   } = await client.auth.getSession()
   if (session) return
   const { error } = await client.auth.signInAnonymously()
-  if (error) throw new Error(error.message)
+  if (error) throw explainAnonymousAuthFailure(error)
 }
 
 /** getUser() 有時在剛 sign-in 後仍為空；以 session 為準較穩 */

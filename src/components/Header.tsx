@@ -110,12 +110,13 @@ export function Header() {
         <p className="modal-sub">
           若在 <code>.env</code> 設定 <code>VITE_SUPABASE_URL</code> 與{' '}
           <code>VITE_SUPABASE_ANON_KEY</code>，並在 Supabase 執行專案內{' '}
-          <code>supabase/migrations</code> 的 SQL、啟用<strong>匿名登入</strong>
-          ，資料會自動同步到雲端（仍以 JSON 匯出／匯入做備份）。
+          <code>supabase/migrations</code> 的 SQL，資料會同步到雲端。
         </p>
         <p className="modal-note">
-          未設定環境變數時，資料僅存在此瀏覽器本機；Netlify 等託管請在後台加上相同的{' '}
-          <code>VITE_*</code> 變數後重新部署。
+          <strong>匿名登入仍 422 時：</strong>同一專案網址須與 <code>.env</code>{' '}
+          一致；Authentication 除「Allow anonymous sign-ins」外，總覽需開啟{' '}
+          <strong>Allow new users to sign up</strong>；Providers 改完要儲存。
+          未設環境變數則僅本機；Netlify 須設相同 <code>VITE_*</code> 並重新部署。
         </p>
         <input
           ref={fileRef}
