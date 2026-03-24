@@ -1,7 +1,10 @@
 import { useMemo, type CSSProperties } from 'react'
 import { useDashboard } from '../context/DashboardContext'
 import {
+  composeBossWeeklyReportEmailHtml,
   composeBossWeeklyReportText,
+  copyBossWeeklyReportForEmail,
+  downloadBossWeeklyReportHtml,
   downloadBossWeeklyReportTxt,
 } from '../lib/bossWeeklyReportCompose'
 
@@ -24,6 +27,18 @@ export function BossWeeklyReportPage() {
   const b = data.bossWeeklyReport
 
   const composed = useMemo(() => composeBossWeeklyReportText(b), [b])
+  const emailHtml = useMemo(() => composeBossWeeklyReportEmailHtml(b), [b])
+
+  const copyEmailFormat = async () => {
+    const mode = await copyBossWeeklyReportForEmail(b)
+    if (mode === 'html') {
+      toast('已複製 Email 格式（含 HTML 表格）— 在信件中直接 Ctrl+V / ⌘V 貼上')
+    } else if (mode === 'plain-only') {
+      toast('此瀏覽器僅複製了純文字版；請改用 Chrome／Edge 或下載 .html 檔')
+    } else {
+      toast('複製失敗，請改下載 .html 後從瀏覽器全選複製')
+    }
+  }
 
   const copyAll = async () => {
     const text = composeBossWeeklyReportText(b)
@@ -43,6 +58,14 @@ export function BossWeeklyReportPage() {
     toast('已下載 .txt')
   }
 
+  const downloadHtml = () => {
+    const base =
+      b.titleLine.trim().replace(/^GM TW Weekly Progress Report\s*-\s*/i, '') ||
+      'boss-weekly-email'
+    downloadBossWeeklyReportHtml(emailHtml, base)
+    toast('已下載 .html（可雙擊用瀏覽器開啟後全選複製到郵件）')
+  }
+
   return (
     <>
       <div className="card" style={{ marginBottom: 16 }}>
@@ -51,13 +74,15 @@ export function BossWeeklyReportPage() {
         </div>
         <div className="card-body" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
           <p style={{ margin: '0 0 8px' }}>
-            格式對齊你上一封 <strong>GM TW Weekly Progress Report</strong>：六大段表格以{' '}
-            <strong>Tab</strong> 分隔，貼到試算表可自動分欄；編輯後會與其他資料一併同步雲端。
+            格式對齊你上一封 <strong>GM TW Weekly Progress Report</strong>：六大段以{' '}
+            <strong>Tab</strong> 編輯；寄信時請用{' '}
+            <strong>複製 Email 格式</strong>
+            ，會產出<strong>HTML 表格</strong>（Gmail／Outlook 貼上後即為表格式）。純文字版仍可用於試算表或備份。
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn"
               onClick={applyBossWeeklyReportExampleHen20260318}
             >
               載入 2026/03/18 參考範例（Hen）
@@ -65,11 +90,17 @@ export function BossWeeklyReportPage() {
             <button type="button" className="btn" onClick={clearBossWeeklyReport}>
               清空草稿
             </button>
+            <button type="button" className="btn btn-primary" onClick={copyEmailFormat}>
+              複製 Email 格式（HTML 表格）
+            </button>
             <button type="button" className="btn" onClick={copyAll}>
-              複製完整週報
+              複製純文字（Tab）
             </button>
             <button type="button" className="btn" onClick={downloadTxt}>
               下載 .txt
+            </button>
+            <button type="button" className="btn" onClick={downloadHtml}>
+              下載 .html
             </button>
           </div>
         </div>
@@ -135,9 +166,32 @@ export function BossWeeklyReportPage() {
         </div>
       ))}
 
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-header">
+          <div className="card-title">Email 預覽（HTML 表格）</div>
+        </div>
+        <div className="card-body">
+          <p className="text-muted" style={{ fontSize: 12, margin: '0 0 10px' }}>
+            與「複製 Email 格式」相同排版；實際郵件外觀可能因信箱略為不同。
+          </p>
+          <iframe
+            title="週報 HTML 預覽"
+            srcDoc={emailHtml}
+            sandbox="allow-same-origin"
+            style={{
+              width: '100%',
+              height: 480,
+              border: '1px solid var(--border, #ddd)',
+              borderRadius: 8,
+              background: '#fff',
+            }}
+          />
+        </div>
+      </div>
+
       <div className="card">
         <div className="card-header">
-          <div className="card-title">匯出預覽（只讀）</div>
+          <div className="card-title">純文字預覽（Tab）</div>
         </div>
         <div className="card-body">
           <textarea
@@ -145,7 +199,7 @@ export function BossWeeklyReportPage() {
             readOnly
             style={{ ...taStyle, minHeight: 200, opacity: 0.95 }}
             value={composed}
-            aria-label="完整週報預覽"
+            aria-label="完整週報純文字預覽"
           />
         </div>
       </div>
