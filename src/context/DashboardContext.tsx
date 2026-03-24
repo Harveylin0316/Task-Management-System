@@ -240,8 +240,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     try {
       const loaded = await sourceRef.current!.load()
       setData(migrateAppData(loaded))
-      mayPersistRef.current = true
       const src = sourceRef.current!
+      mayPersistRef.current = isSupabaseAsyncDataSource(src)
+        ? src.allowAutoSaveAfterLoad()
+        : true
       if (isSupabaseAsyncDataSource(src) && src.needsEmailToReachCloud()) {
         setCloudNeedsEmail(true)
       } else {
@@ -260,10 +262,14 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         const loaded = await sourceRef.current!.load()
         if (cancelled) return
         setData(migrateAppData(loaded))
-        mayPersistRef.current = true
         const src = sourceRef.current!
+        mayPersistRef.current = isSupabaseAsyncDataSource(src)
+          ? src.allowAutoSaveAfterLoad()
+          : true
         if (isSupabaseAsyncDataSource(src) && src.needsEmailToReachCloud()) {
           setCloudNeedsEmail(true)
+        } else {
+          setCloudNeedsEmail(false)
         }
       } catch (e) {
         console.error('載入資料失敗', e)

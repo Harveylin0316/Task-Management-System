@@ -13,6 +13,11 @@ import type { AppData } from './types'
 export type SupabaseAsyncDataSource = AsyncDataSource & {
   /** 匿名被 API 擋下且尚無任何登入 session 時為 true，需改 Email 登入才會寫雲端 */
   needsEmailToReachCloud(): boolean
+  /**
+   * 上次 load 是否允許觸發自動存檔：已自雲端讀過 dashboard_data，或離線改走本機。
+   * 若皆否（例如異常提早回傳空白），應禁止 auto-save，以免空白狀態覆寫雲端名冊。
+   */
+  allowAutoSaveAfterLoad(): boolean
 }
 
 /**
@@ -171,7 +176,9 @@ export function isSupabaseAsyncDataSource(
 ): s is SupabaseAsyncDataSource {
   return (
     'needsEmailToReachCloud' in s &&
-    typeof (s as SupabaseAsyncDataSource).needsEmailToReachCloud === 'function'
+    typeof (s as SupabaseAsyncDataSource).needsEmailToReachCloud === 'function' &&
+    'allowAutoSaveAfterLoad' in s &&
+    typeof (s as SupabaseAsyncDataSource).allowAutoSaveAfterLoad === 'function'
   )
 }
 
@@ -180,17 +187,24 @@ export function createSupabaseAsyncDataSource(
 ): SupabaseAsyncDataSource {
   const localOnly = createLocalStorageDataSource()
   let needsEmail = false
+  /** 上次 load 是否已執行過 loadFromCloud（成功讀寫雲端列） */
+  let cloudHydratedAtLastLoad = false
 
   return {
     needsEmailToReachCloud: () => needsEmail,
 
+    allowAutoSaveAfterLoad: () => cloudHydratedAtLastLoad || needsEmail,
+
     async load() {
       needsEmail = false
+      cloudHydratedAtLastLoad = false
       const {
         data: { session },
       } = await client.auth.getSession()
       if (session?.user?.id) {
-        return loadFromCloud(client, session.user.id)
+        const app = await loadFromCloud(client, session.user.id)
+        cloudHydratedAtLastLoad = true
+        return app
       }
 
       if (shouldSkipAnonymousSignIn()) {
@@ -204,7 +218,11 @@ export function createSupabaseAsyncDataSource(
         const {
           data: { session: s2 },
         } = await client.auth.getSession()
-        if (s2?.user?.id) return loadFromCloud(client, s2.user.id)
+        if (s2?.user?.id) {
+          const app = await loadFromCloud(client, s2.user.id)
+          cloudHydratedAtLastLoad = true
+          return app
+        }
       }
 
       if (error && isAnonymousBlocked(error)) {
