@@ -1,0 +1,15 @@
+---
+description: After code changes, commit and push to GitHub without asking
+alwaysApply: true
+---
+
+# GitHub：變更後自動推送
+
+在完成任何會改動專案檔案的任務後（程式、設定、`netlify.toml` 等）：
+
+1. 在專案根目錄執行 `git status`；若有未追蹤或已修改的檔案，**必須**接著推送，**不要**先問使用者要不要 push。
+2. `git add -A`，再以簡短英文或中文寫清楚本次變更的 `git commit -m "..."`，然後 `git push`（預設分支 `main`，遠端 `origin`）。
+3. 若工作區乾淨、沒有可提交的變更，不必造空 commit。
+4. 若 push 失敗（認證、衝突、網路），說明原因並嘗試合理修正；仍不要把 token 或密碼寫進對話。
+
+使用者要求：所有更動都應同步到 GitHub，預設由代理執行上述流程。
