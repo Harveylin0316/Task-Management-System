@@ -260,6 +260,7 @@ export function migrateAppData(raw: unknown): AppData {
     else if (v === null) ui.deptWorkspaceFocusDeptId = null
   }
   if (uiRaw.skipAnonymousSignIn === true) ui.skipAnonymousSignIn = true
+  if (uiRaw.teamRosterClearedByUser === true) ui.teamRosterClearedByUser = true
 
   const teamRosterCloudBackup: TeamRosterMember[] = Array.isArray(
     d.teamRosterCloudBackup,

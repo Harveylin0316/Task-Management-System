@@ -12,7 +12,8 @@ export interface DataSource {
 /** Supabase 或非同步後端：由 Provider 於載入時 await */
 export interface AsyncDataSource {
   load(): Promise<AppData>
-  save(data: AppData): Promise<void>
+  /** 若實作端合併了雲端資料（例如還原名冊），可回傳更新後的 AppData 以同步 React 狀態 */
+  save(data: AppData): Promise<AppData | undefined>
 }
 
 const LEGACY_KEY = 'wm_data_v3'
@@ -71,6 +72,7 @@ export function createAsyncLocalStorageDataSource(): AsyncDataSource {
     load: async () => inner.load(),
     save: async (data) => {
       inner.save(data)
+      return undefined
     },
   }
 }

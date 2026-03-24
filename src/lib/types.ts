@@ -157,6 +157,11 @@ export interface AppUiPrefs {
    * 尚無任何 session 時無法讀雲端，另以 sessionStorage 避免同分頁內重複打匿名 API。
    */
   skipAnonymousSignIn?: boolean
+  /**
+   * 使用者刻意清空名冊（刪除最後一員或匯入空名冊）時為 true。
+   * upsert 時若為 false/缺省，且雲端仍有名冊，則不會用空白客戶端覆寫雲端名冊。
+   */
+  teamRosterClearedByUser?: boolean
 }
 
 export interface AppData {

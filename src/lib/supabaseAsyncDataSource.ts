@@ -154,21 +154,55 @@ async function loadFromCloud(
   return defaultData()
 }
 
+/**
+ * 寫入雲端；若客戶端名冊為空且非使用者刻意清空，而資料庫內仍有名冊，則合併保留名冊（避免誤載入空白後覆寫）。
+ * 有合併時回傳合併後的 AppData，供 UI 同步。
+ */
 async function upsertPayload(
   client: SupabaseClient,
   userId: string,
   data: AppData,
-): Promise<void> {
-  const payload = prepareAppDataForPersist(data)
+): Promise<AppData | undefined> {
+  let outgoing = prepareAppDataForPersist(data)
+  let didMergeRosterFromServer = false
+
+  const { data: row, error: selErr } = await client
+    .from('dashboard_data')
+    .select('payload')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (selErr) throw selErr
+
+  const existingPayload = row?.payload
+  if (
+    outgoing.teamRoster.length === 0 &&
+    outgoing.teamRosterCloudBackup.length === 0 &&
+    outgoing.ui.teamRosterClearedByUser !== true &&
+    existingPayload != null &&
+    typeof existingPayload === 'object' &&
+    !Array.isArray(existingPayload)
+  ) {
+    const existingApp = migrateAppData(existingPayload)
+    if (existingApp.teamRoster.length > 0) {
+      outgoing = {
+        ...outgoing,
+        teamRoster: existingApp.teamRoster,
+        teamRosterCloudBackup: existingApp.teamRoster,
+      }
+      didMergeRosterFromServer = true
+    }
+  }
+
   const { error } = await client.from('dashboard_data').upsert(
     {
       user_id: userId,
-      payload,
+      payload: outgoing,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id' },
   )
   if (error) throw error
+  return didMergeRosterFromServer ? outgoing : undefined
 }
 
 export function isSupabaseAsyncDataSource(
@@ -241,14 +275,14 @@ export function createSupabaseAsyncDataSource(
         data: { session },
       } = await client.auth.getSession()
       if (session?.user?.id) {
-        await upsertPayload(client, session.user.id, data)
+        const repaired = await upsertPayload(client, session.user.id, data)
         syncSkipAnonymousSessionFlag(data.ui)
-        return
+        return repaired
       }
 
       if (shouldSkipAnonymousSignIn()) {
         localOnly.save(data)
-        return
+        return undefined
       }
 
       const { error } = await client.auth.signInAnonymously()
@@ -257,19 +291,20 @@ export function createSupabaseAsyncDataSource(
           data: { session: s2 },
         } = await client.auth.getSession()
         if (s2?.user?.id) {
-          await upsertPayload(client, s2.user.id, data)
+          const repaired = await upsertPayload(client, s2.user.id, data)
           syncSkipAnonymousSessionFlag(data.ui)
-          return
+          return repaired
         }
       }
 
       if (error && isAnonymousBlocked(error)) {
         rememberAnonymousDisabledByApi()
         localOnly.save(data)
-        return
+        return undefined
       }
 
       if (error) throw explainAnonymousAuthFailure(error)
+      return undefined
     },
   }
 }

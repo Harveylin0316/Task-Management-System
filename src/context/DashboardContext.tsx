@@ -319,16 +319,21 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     if (!hydrated || !mayPersistRef.current) return
     const src = sourceRef.current!
     const t = window.setTimeout(() => {
-      void src.save(data).catch((err) => {
-        console.error('儲存失敗', err)
-        const msg =
-          err instanceof Error ? err.message : typeof err === 'string' ? err : ''
-        toast(
-          msg
-            ? `雲端儲存失敗：${msg}`
-            : '雲端儲存失敗，請開開發者工具 Console 查看原因',
-        )
-      })
+      void src
+        .save(data)
+        .then((repaired) => {
+          if (repaired != null) setData(migrateAppData(repaired))
+        })
+        .catch((err) => {
+          console.error('儲存失敗', err)
+          const msg =
+            err instanceof Error ? err.message : typeof err === 'string' ? err : ''
+          toast(
+            msg
+              ? `雲端儲存失敗：${msg}`
+              : '雲端儲存失敗，請開開發者工具 Console 查看原因',
+          )
+        })
     }, 450)
     return () => window.clearTimeout(t)
   }, [data, hydrated, toast])
@@ -351,7 +356,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       reader.onload = () => {
         try {
           const parsed = JSON.parse(String(reader.result))
-          setData(migrateAppData(parsed))
+          const m = migrateAppData(parsed)
+          const ui = { ...m.ui }
+          if (m.teamRoster.length === 0) ui.teamRosterClearedByUser = true
+          else delete ui.teamRosterClearedByUser
+          setData({ ...m, ui })
           mayPersistRef.current = true
           setSelectedBigProjectIdx(0)
           toast('資料已匯入')
@@ -586,18 +595,23 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         departmentId === undefined || departmentId === '' || departmentId == null
           ? null
           : departmentId
-      setData((prev) => ({
-        ...prev,
-        teamRoster: [
-          ...prev.teamRoster,
-          {
-            id: newId(),
-            name: n,
-            departmentId: dept,
-            role: r && r.length > 0 ? r : undefined,
-          },
-        ],
-      }))
+      setData((prev) => {
+        const nextUi = { ...prev.ui }
+        delete nextUi.teamRosterClearedByUser
+        return {
+          ...prev,
+          ui: nextUi,
+          teamRoster: [
+            ...prev.teamRoster,
+            {
+              id: newId(),
+              name: n,
+              departmentId: dept,
+              role: r && r.length > 0 ? r : undefined,
+            },
+          ],
+        }
+      })
       toast('團隊成員已新增')
     },
     [toast],
@@ -641,10 +655,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   )
 
   const removeTeamRosterMember = useCallback((id: string) => {
-    setData((prev) => ({
-      ...prev,
-      teamRoster: prev.teamRoster.filter((m) => m.id !== id),
-    }))
+    setData((prev) => {
+      const next = prev.teamRoster.filter((m) => m.id !== id)
+      const nextUi = { ...prev.ui }
+      if (next.length === 0) nextUi.teamRosterClearedByUser = true
+      else delete nextUi.teamRosterClearedByUser
+      return { ...prev, teamRoster: next, ui: nextUi }
+    })
     toast('已從名冊移除')
   }, [toast])
 
