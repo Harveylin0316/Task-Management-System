@@ -69,6 +69,24 @@ function inferTeamRosterFromTaskAssignees(
   }))
 }
 
+/**
+ * 寫入雲端／本機前呼叫：名冊仍空且非使用者刻意清空時，用任務負責人補齊（與 migrate 一致）。
+ */
+export function augmentAppDataWithRosterFromAssigneesIfEmpty(data: AppData): AppData {
+  if (data.teamRoster.length > 0 || data.ui.teamRosterClearedByUser === true) {
+    return data
+  }
+  const inferred = inferTeamRosterFromTaskAssignees(
+    data as unknown as Record<string, unknown>,
+  )
+  if (inferred.length === 0) return data
+  return {
+    ...data,
+    teamRoster: inferred,
+    teamRosterCloudBackup: inferred,
+  }
+}
+
 /** 相容舊版無 id 的 JSON，並補齊欄位 */
 export function migrateAppData(raw: unknown): AppData {
   const base = defaultData()

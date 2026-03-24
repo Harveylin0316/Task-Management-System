@@ -222,6 +222,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     toastT.current = window.setTimeout(() => setToastMessage(null), 4500)
   }, [])
 
+  const dataRef = useRef(data)
+  dataRef.current = data
+  const hydratedRef = useRef(hydrated)
+  hydratedRef.current = hydrated
+  const toastRef = useRef(toast)
+  toastRef.current = toast
+
   const updateUiPrefs = useCallback((partial: Partial<AppUiPrefs>) => {
     setData((prev) => {
       const nextUi: AppUiPrefs = { ...prev.ui }
@@ -238,9 +245,17 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const reloadFromRemote = useCallback(async () => {
     try {
-      const loaded = await sourceRef.current!.load()
-      setData(migrateAppData(loaded))
       const src = sourceRef.current!
+      if (hydratedRef.current && mayPersistRef.current) {
+        try {
+          const repaired = await src.save(dataRef.current)
+          if (repaired != null) setData(migrateAppData(repaired))
+        } catch {
+          /* 先存再拉失敗時仍嘗試載入雲端 */
+        }
+      }
+      const loaded = await src.load()
+      setData(migrateAppData(loaded))
       mayPersistRef.current = isSupabaseAsyncDataSource(src)
         ? src.allowAutoSaveAfterLoad()
         : true
@@ -319,8 +334,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     if (!hydrated || !mayPersistRef.current) return
     const src = sourceRef.current!
     const t = window.setTimeout(() => {
+      const snap = dataRef.current
       void src
-        .save(data)
+        .save(snap)
         .then((repaired) => {
           if (repaired != null) setData(migrateAppData(repaired))
         })
@@ -328,15 +344,41 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           console.error('儲存失敗', err)
           const msg =
             err instanceof Error ? err.message : typeof err === 'string' ? err : ''
-          toast(
+          toastRef.current(
             msg
               ? `雲端儲存失敗：${msg}`
               : '雲端儲存失敗，請開開發者工具 Console 查看原因',
           )
         })
-    }, 450)
+    }, 300)
     return () => window.clearTimeout(t)
-  }, [data, hydrated, toast])
+  }, [data, hydrated])
+
+  /** 關閉分頁／重新整理前立刻存檔；避免 debounce 被 cleanup 取消導致名冊等變更未上傳 */
+  useEffect(() => {
+    const flush = () => {
+      if (!hydratedRef.current || !mayPersistRef.current) return
+      const src = sourceRef.current!
+      const snap = dataRef.current
+      void src
+        .save(snap)
+        .then((repaired) => {
+          if (repaired != null) setData(migrateAppData(repaired))
+        })
+        .catch((err) => {
+          console.error('離開頁面前儲存失敗', err)
+        })
+    }
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') flush()
+    }
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [])
 
   const exportJson = useCallback(() => {
     const blob = new Blob([JSON.stringify(data, null, 2)], {

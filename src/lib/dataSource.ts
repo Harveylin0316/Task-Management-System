@@ -1,5 +1,8 @@
 import { defaultData } from './defaultData'
-import { migrateAppData } from './migrate'
+import {
+  augmentAppDataWithRosterFromAssigneesIfEmpty,
+  migrateAppData,
+} from './migrate'
 import { prepareAppDataForPersist } from './persistPayload'
 import type { AppData } from './types'
 
@@ -33,7 +36,9 @@ export function createLocalStorageDataSource(): DataSource {
     },
     save(data: AppData) {
       try {
-        const payload = prepareAppDataForPersist(data)
+        const payload = prepareAppDataForPersist(
+          augmentAppDataWithRosterFromAssigneesIfEmpty(data),
+        )
         localStorage.setItem(STORE_KEY, JSON.stringify(payload))
       } catch {
         /* quota / private mode */

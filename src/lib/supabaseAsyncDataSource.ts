@@ -6,7 +6,10 @@ import {
   type AsyncDataSource,
 } from './dataSource'
 import { defaultData } from './defaultData'
-import { migrateAppData } from './migrate'
+import {
+  augmentAppDataWithRosterFromAssigneesIfEmpty,
+  migrateAppData,
+} from './migrate'
 import { prepareAppDataForPersist } from './persistPayload'
 import type { AppData } from './types'
 
@@ -158,7 +161,9 @@ async function upsertPayload(
   userId: string,
   data: AppData,
 ): Promise<AppData | undefined> {
-  let outgoing = prepareAppDataForPersist(data)
+  let outgoing = prepareAppDataForPersist(
+    augmentAppDataWithRosterFromAssigneesIfEmpty(data),
+  )
   let didMergeRosterFromServer = false
 
   const { data: row, error: selErr } = await client
