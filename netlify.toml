@@ -1,0 +1,13 @@
+# https://docs.netlify.com/configure-builds/file-based-configuration/
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# 若之後加上 React Router 等瀏覽器路徑，重新整理子路徑仍會載入 SPA
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
