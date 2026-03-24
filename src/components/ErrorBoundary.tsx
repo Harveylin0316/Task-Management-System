@@ -41,8 +41,8 @@ export class ErrorBoundary extends Component<Props, State> {
           </pre>
           <p style={{ fontSize: 14, color: '#555', marginTop: 16 }}>
             請試著用終端機在專案目錄執行 <code>npm run dev</code>，再以
-            http://localhost:5173 開啟。若曾匯入 JSON，可清除此網站的
-            localStorage 後重新整理。
+            http://localhost:5173 開啟。若曾匯入 JSON 或快取異常，可清除此網站的
+            網站資料（含 localStorage）後重新整理；已登入時主要資料在 Supabase。
           </p>
         </div>
       )

@@ -135,10 +135,40 @@ export interface BigProject {
   risks: Risk[]
 }
 
+/** 主畫面分頁 id（與導覽列一致） */
+export type DashboardTabId =
+  | 'today'
+  | 'deptws'
+  | 'mydept'
+  | 'track'
+  | 'tasks'
+  | 'calendar'
+  | 'weekly'
+  | 'projects'
+
+/** 與業務資料一併存於雲端 payload 的介面偏好 */
+export interface AppUiPrefs {
+  /** 進入 App 時預設開啟的分頁；未設定則為「今日」 */
+  defaultTab?: DashboardTabId
+  /** 部門工作台目前選中的部門 */
+  deptWorkspaceFocusDeptId?: string | null
+  /**
+   * 後台停用匿名登入時為 true，與 payload 一併同步。
+   * 尚無任何 session 時無法讀雲端，另以 sessionStorage 避免同分頁內重複打匿名 API。
+   */
+  skipAnonymousSignIn?: boolean
+}
+
 export interface AppData {
   departments: Department[]
   /** 團隊成員名冊 */
   teamRoster: TeamRosterMember[]
+  /**
+   * 與 teamRoster 一併維護；雲端若漏寫 teamRoster 時由此補回（見 migrate）。
+   * 存檔前由 prepareAppDataForPersist 更新。
+   */
+  teamRosterCloudBackup: TeamRosterMember[]
+  ui: AppUiPrefs
   today: TaskItem[]
   active: TaskItem[]
   someday: TaskItem[]

@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useDashboard } from '../context/DashboardContext'
+import type { DashboardTabId } from '../lib/types'
 import { Header } from './Header'
 import { TodayPage } from '../pages/TodayPage'
 import { TasksPage } from '../pages/TasksPage'
@@ -10,26 +11,10 @@ import { MyAndDepartmentsPage } from '../pages/MyAndDepartmentsPage'
 import { TrackOverviewPage } from '../pages/TrackOverviewPage'
 import { DepartmentWorkspacePage } from '../pages/DepartmentWorkspacePage'
 
-export type TabId =
-  | 'today'
-  | 'deptws'
-  | 'mydept'
-  | 'track'
-  | 'tasks'
-  | 'calendar'
-  | 'weekly'
-  | 'projects'
+/** @deprecated 請改用 {@link DashboardTabId} */
+export type TabId = DashboardTabId
 
-function readInitialTab(): TabId {
-  try {
-    if (localStorage.getItem('wm_default_tab_v1') === 'deptws') return 'deptws'
-  } catch {
-    /* */
-  }
-  return 'today'
-}
-
-const TABS: { id: TabId; label: string }[] = [
+const TABS: { id: DashboardTabId; label: string }[] = [
   { id: 'today', label: '📅 今日' },
   { id: 'deptws', label: '🏢 部門工作台' },
   { id: 'mydept', label: '🏬 部門與KPI管理' },
@@ -65,7 +50,16 @@ function TeamRosterDatalists() {
 }
 
 export function Dashboard() {
-  const [tab, setTab] = useState<TabId>(readInitialTab)
+  const { data, hydrated } = useDashboard()
+  const [tab, setTab] = useState<DashboardTabId>('today')
+  const landingAppliedRef = useRef(false)
+
+  useEffect(() => {
+    if (!hydrated || landingAppliedRef.current) return
+    const t = data.ui?.defaultTab
+    if (t && TABS.some((x) => x.id === t)) setTab(t)
+    landingAppliedRef.current = true
+  }, [hydrated, data.ui?.defaultTab])
 
   return (
     <>

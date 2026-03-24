@@ -7,6 +7,7 @@ import {
 } from './dataSource'
 import { defaultData } from './defaultData'
 import { migrateAppData } from './migrate'
+import { prepareAppDataForPersist } from './persistPayload'
 import type { AppData } from './types'
 
 export type SupabaseAsyncDataSource = AsyncDataSource & {
@@ -14,20 +15,32 @@ export type SupabaseAsyncDataSource = AsyncDataSource & {
   needsEmailToReachCloud(): boolean
 }
 
-/** 曾偵測到匿名被 API 停用時寫入，之後不再呼叫 signInAnonymously，避免每次開頁都 422 洗版 */
+/**
+ * 無 auth session 時無法讀寫雲端 payload；用 sessionStorage 避免同分頁重複打匿名 API。
+ * 已登入時偏好以 payload.ui.skipAnonymousSignIn 為準並與此同步。
+ */
 const SKIP_ANONYMOUS_KEY = 'wm_supabase_skip_anonymous_v1'
 
 function shouldSkipAnonymousSignIn(): boolean {
   try {
-    return localStorage.getItem(SKIP_ANONYMOUS_KEY) === '1'
+    return sessionStorage.getItem(SKIP_ANONYMOUS_KEY) === '1'
   } catch {
     return false
   }
 }
 
+function syncSkipAnonymousSessionFlag(fromUi: AppData['ui']): void {
+  try {
+    if (fromUi.skipAnonymousSignIn) sessionStorage.setItem(SKIP_ANONYMOUS_KEY, '1')
+    else sessionStorage.removeItem(SKIP_ANONYMOUS_KEY)
+  } catch {
+    /* */
+  }
+}
+
 function rememberAnonymousDisabledByApi(): void {
   try {
-    localStorage.setItem(SKIP_ANONYMOUS_KEY, '1')
+    sessionStorage.setItem(SKIP_ANONYMOUS_KEY, '1')
   } catch {
     /* */
   }
@@ -59,25 +72,10 @@ function explainAnonymousAuthFailure(error: {
   )
 }
 
-/**
- * 雲端若為 {}、缺 teamRoster、或 teamRoster 為 null，migrate 後名冊會變空。
- * 僅在雲端「未明確寫入 teamRoster: []」時，用 localStorage 備份補回名冊，避免登入／重新載入後被洗白。
- */
-function mergeTeamRosterFromLocalIfNeeded(
-  rawPayload: Record<string, unknown>,
-  app: AppData,
-): AppData {
-  const explicitEmptyRoster =
-    'teamRoster' in rawPayload &&
-    Array.isArray(rawPayload.teamRoster) &&
-    rawPayload.teamRoster.length === 0
-  if (explicitEmptyRoster) return app
-  if (app.teamRoster.length > 0) return app
-  const local = readPersistedLocalAppData()
-  if (!local?.teamRoster?.length) return app
+function withSkipAnonymousUi(data: AppData): AppData {
   return {
-    ...app,
-    teamRoster: migrateAppData(local).teamRoster,
+    ...data,
+    ui: { ...data.ui, skipAnonymousSignIn: true },
   }
 }
 
@@ -99,19 +97,34 @@ async function loadFromCloud(
   ) {
     const raw = payload as Record<string, unknown>
     const app = migrateAppData(payload)
-    const merged = mergeTeamRosterFromLocalIfNeeded(raw, app)
-    if (merged.teamRoster.length > app.teamRoster.length) {
+    syncSkipAnonymousSessionFlag(app.ui)
+
+    const explicitEmpty =
+      'teamRoster' in raw &&
+      Array.isArray(raw.teamRoster) &&
+      raw.teamRoster.length === 0
+    const rosterMissingOrEmpty =
+      !explicitEmpty &&
+      (!Array.isArray(raw.teamRoster) || raw.teamRoster.length === 0)
+    const mergedFromBackup =
+      rosterMissingOrEmpty &&
+      app.teamRoster.length > 0 &&
+      Array.isArray(raw.teamRosterCloudBackup) &&
+      raw.teamRosterCloudBackup.length > 0
+
+    if (mergedFromBackup) {
+      const toSave = prepareAppDataForPersist(app)
       const { error: upErr } = await client.from('dashboard_data').upsert(
         {
           user_id: userId,
-          payload: merged,
+          payload: toSave,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id' },
       )
       if (upErr) throw upErr
     }
-    return merged
+    return app
   }
   if (payload != null) {
     return migrateAppData(payload)
@@ -122,13 +135,14 @@ async function loadFromCloud(
     const { error: upErr } = await client.from('dashboard_data').upsert(
       {
         user_id: userId,
-        payload: local,
+        payload: prepareAppDataForPersist(local),
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id' },
     )
     if (upErr) throw upErr
     clearPersistedLocalAppData()
+    syncSkipAnonymousSessionFlag(local.ui)
     return local
   }
 
@@ -140,10 +154,11 @@ async function upsertPayload(
   userId: string,
   data: AppData,
 ): Promise<void> {
+  const payload = prepareAppDataForPersist(data)
   const { error } = await client.from('dashboard_data').upsert(
     {
       user_id: userId,
-      payload: data,
+      payload,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id' },
@@ -180,7 +195,8 @@ export function createSupabaseAsyncDataSource(
 
       if (shouldSkipAnonymousSignIn()) {
         needsEmail = true
-        return readPersistedLocalAppData() ?? defaultData()
+        const local = readPersistedLocalAppData()
+        return migrateAppData(withSkipAnonymousUi(local ?? defaultData()))
       }
 
       const { error } = await client.auth.signInAnonymously()
@@ -194,7 +210,8 @@ export function createSupabaseAsyncDataSource(
       if (error && isAnonymousBlocked(error)) {
         rememberAnonymousDisabledByApi()
         needsEmail = true
-        return readPersistedLocalAppData() ?? defaultData()
+        const local = readPersistedLocalAppData()
+        return migrateAppData(withSkipAnonymousUi(local ?? defaultData()))
       }
 
       if (error) throw explainAnonymousAuthFailure(error)
@@ -207,6 +224,7 @@ export function createSupabaseAsyncDataSource(
       } = await client.auth.getSession()
       if (session?.user?.id) {
         await upsertPayload(client, session.user.id, data)
+        syncSkipAnonymousSessionFlag(data.ui)
         return
       }
 
@@ -222,6 +240,7 @@ export function createSupabaseAsyncDataSource(
         } = await client.auth.getSession()
         if (s2?.user?.id) {
           await upsertPayload(client, s2.user.id, data)
+          syncSkipAnonymousSessionFlag(data.ui)
           return
         }
       }

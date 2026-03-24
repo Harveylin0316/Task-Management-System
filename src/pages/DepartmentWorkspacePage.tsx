@@ -12,9 +12,6 @@ import { parseParticipantNames } from '../lib/parseParticipants'
 import { rosterDatalistIdForDepartment } from '../lib/rosterDatalist'
 import type { SmallProject, TaskSection } from '../lib/types'
 
-const DEPT_FOCUS_KEY = 'wm_dept_workspace_focus_v1'
-const DEFAULT_TAB_KEY = 'wm_default_tab_v1'
-
 const SECTION_LABEL: Record<'today' | 'active' | 'someday', string> = {
   today: '今日',
   active: '進行中',
@@ -293,6 +290,7 @@ export function DepartmentWorkspacePage() {
     addSmallProject,
     updateDepartmentKpi,
     toast,
+    updateUiPrefs,
   } = useDashboard()
 
   const [deptId, setDeptId] = useState<string | null>(null)
@@ -320,26 +318,22 @@ export function DepartmentWorkspacePage() {
     }
     setDeptId((cur) => {
       if (cur && data.departments.some((d) => d.id === cur)) return cur
-      try {
-        const saved = localStorage.getItem(DEPT_FOCUS_KEY)
-        if (saved && data.departments.some((d) => d.id === saved)) {
-          return saved
-        }
-      } catch {
-        /* */
+      const saved = data.ui.deptWorkspaceFocusDeptId
+      if (
+        typeof saved === 'string' &&
+        data.departments.some((d) => d.id === saved)
+      ) {
+        return saved
       }
       return data.departments[0].id
     })
-  }, [data.departments])
+  }, [data.departments, data.ui.deptWorkspaceFocusDeptId])
 
   const persistDept = (id: string | null) => {
     setDeptId(id)
-    try {
-      if (id) localStorage.setItem(DEPT_FOCUS_KEY, id)
-      else localStorage.removeItem(DEPT_FOCUS_KEY)
-    } catch {
-      /* */
-    }
+    updateUiPrefs({
+      deptWorkspaceFocusDeptId: id === null ? null : id,
+    })
   }
 
   const dept = deptId
@@ -409,21 +403,13 @@ export function DepartmentWorkspacePage() {
   }
 
   const setDefaultTabDeptWs = () => {
-    try {
-      localStorage.setItem(DEFAULT_TAB_KEY, 'deptws')
-      toast('已設為進入時開啟「部門工作台」；重新整理頁面後生效。')
-    } catch {
-      toast('無法寫入瀏覽器設定')
-    }
+    updateUiPrefs({ defaultTab: 'deptws' })
+    toast('已同步至雲端：下次開啟將預設「部門工作台」。')
   }
 
   const clearDefaultTab = () => {
-    try {
-      localStorage.removeItem(DEFAULT_TAB_KEY)
-      toast('已還原，重新整理後預設為「今日」。')
-    } catch {
-      /* */
-    }
+    updateUiPrefs({ defaultTab: undefined })
+    toast('已還原並同步至雲端，下次開啟預設為「今日」。')
   }
 
   if (!data.departments.length) {

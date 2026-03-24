@@ -3,7 +3,9 @@ import { newId } from './id'
 import { createDefaultDepartments } from './presetDepartments'
 import type {
   AppData,
+  AppUiPrefs,
   BigProject,
+  DashboardTabId,
   DeadlineItem,
   Department,
   DepartmentKpi,
@@ -16,6 +18,17 @@ import type {
   TeamRosterMember,
   WaitingItem,
 } from './types'
+
+const VALID_DASHBOARD_TABS = new Set<DashboardTabId>([
+  'today',
+  'deptws',
+  'mydept',
+  'track',
+  'tasks',
+  'calendar',
+  'weekly',
+  'projects',
+])
 
 function nid(): string {
   return newId()
@@ -213,13 +226,54 @@ export function migrateAppData(raw: unknown): AppData {
     : base.departments
   if (!departments.length) departments = createDefaultDepartments()
 
+  const explicitEmptyTeamRoster =
+    'teamRoster' in d &&
+    Array.isArray(d.teamRoster) &&
+    d.teamRoster.length === 0
+
+  let teamRoster: TeamRosterMember[] = Array.isArray(d.teamRoster)
+    ? d.teamRoster.map((x) =>
+        mapTeamRosterMember(x as unknown as Record<string, unknown>),
+      )
+    : base.teamRoster
+
+  if (
+    !explicitEmptyTeamRoster &&
+    teamRoster.length === 0 &&
+    Array.isArray(d.teamRosterCloudBackup) &&
+    d.teamRosterCloudBackup.length > 0
+  ) {
+    teamRoster = d.teamRosterCloudBackup.map((x) =>
+      mapTeamRosterMember(x as unknown as Record<string, unknown>),
+    )
+  }
+
+  const uiRaw = (d.ui ?? {}) as Record<string, unknown>
+  const dt = uiRaw.defaultTab
+  const ui: AppUiPrefs = {}
+  if (typeof dt === 'string' && VALID_DASHBOARD_TABS.has(dt as DashboardTabId)) {
+    ui.defaultTab = dt as DashboardTabId
+  }
+  if (Object.prototype.hasOwnProperty.call(uiRaw, 'deptWorkspaceFocusDeptId')) {
+    const v = uiRaw.deptWorkspaceFocusDeptId
+    if (typeof v === 'string') ui.deptWorkspaceFocusDeptId = v
+    else if (v === null) ui.deptWorkspaceFocusDeptId = null
+  }
+  if (uiRaw.skipAnonymousSignIn === true) ui.skipAnonymousSignIn = true
+
+  const teamRosterCloudBackup: TeamRosterMember[] = Array.isArray(
+    d.teamRosterCloudBackup,
+  )
+    ? d.teamRosterCloudBackup.map((x) =>
+        mapTeamRosterMember(x as unknown as Record<string, unknown>),
+      )
+    : base.teamRosterCloudBackup
+
   return {
     departments,
-    teamRoster: Array.isArray(d.teamRoster)
-      ? d.teamRoster.map((x) =>
-          mapTeamRosterMember(x as unknown as Record<string, unknown>),
-        )
-      : base.teamRoster,
+    teamRoster,
+    teamRosterCloudBackup,
+    ui,
     today: Array.isArray(d.today) ? d.today.map((t) => mapTask(t as Record<string, unknown>)) : base.today,
     active: Array.isArray(d.active)
       ? d.active.map((t) => mapTask(t as Record<string, unknown>))

@@ -5,6 +5,8 @@ export function defaultData(): AppData {
   return {
     departments: createDefaultDepartments(),
     teamRoster: [],
+    teamRosterCloudBackup: [],
+    ui: {},
     today: [],
     active: [],
     someday: [],

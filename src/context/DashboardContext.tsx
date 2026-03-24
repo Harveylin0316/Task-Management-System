@@ -26,6 +26,7 @@ import {
 import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabaseClient'
 import type {
   AppData,
+  AppUiPrefs,
   BigProjectStatus,
   Priority,
   SmallProject,
@@ -43,6 +44,10 @@ function getOrCreateAsyncSource(): AsyncDataSource {
 
 export type DashboardContextValue = {
   data: AppData
+  /** 首次載入完成（可讀寫雲端／本機資料後） */
+  hydrated: boolean
+  /** 合併寫入 payload.ui，undefined 的值會移除該欄位 */
+  updateUiPrefs: (partial: Partial<AppUiPrefs>) => void
   selectedBigProjectIdx: number
   setSelectedBigProjectIdx: (i: number) => void
   toast: (msg: string) => void
@@ -215,6 +220,20 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setToastMessage(msg)
     window.clearTimeout(toastT.current)
     toastT.current = window.setTimeout(() => setToastMessage(null), 4500)
+  }, [])
+
+  const updateUiPrefs = useCallback((partial: Partial<AppUiPrefs>) => {
+    setData((prev) => {
+      const nextUi: AppUiPrefs = { ...prev.ui }
+      for (const [k, v] of Object.entries(partial) as [
+        keyof AppUiPrefs,
+        AppUiPrefs[keyof AppUiPrefs],
+      ][]) {
+        if (v === undefined) delete nextUi[k]
+        else (nextUi as Record<string, unknown>)[k as string] = v
+      }
+      return { ...prev, ui: nextUi }
+    })
   }, [])
 
   const reloadFromRemote = useCallback(async () => {
@@ -1303,6 +1322,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       data,
+      hydrated,
+      updateUiPrefs,
       selectedBigProjectIdx: selectedBigProjectIdxSafe,
       setSelectedBigProjectIdx,
       toast,
@@ -1361,6 +1382,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }),
     [
       data,
+      hydrated,
+      updateUiPrefs,
       selectedBigProjectIdxSafe,
       toast,
       toastMessage,

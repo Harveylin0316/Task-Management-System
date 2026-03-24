@@ -1,5 +1,6 @@
 import { defaultData } from './defaultData'
 import { migrateAppData } from './migrate'
+import { prepareAppDataForPersist } from './persistPayload'
 import type { AppData } from './types'
 
 /** 同步本機儲存（測試或純離線用） */
@@ -31,7 +32,8 @@ export function createLocalStorageDataSource(): DataSource {
     },
     save(data: AppData) {
       try {
-        localStorage.setItem(STORE_KEY, JSON.stringify(data))
+        const payload = prepareAppDataForPersist(data)
+        localStorage.setItem(STORE_KEY, JSON.stringify(payload))
       } catch {
         /* quota / private mode */
       }
@@ -39,7 +41,9 @@ export function createLocalStorageDataSource(): DataSource {
   }
 }
 
-/** 讀取本機既有資料（供 Supabase 首次同步遷移） */
+/**
+ * 讀取本機既有資料（供 Supabase 首次同步遷移，或離線備援）。
+ */
 export function readPersistedLocalAppData(): AppData | null {
   try {
     const raw =
@@ -51,6 +55,7 @@ export function readPersistedLocalAppData(): AppData | null {
   }
 }
 
+/** 首次上雲後可清除主 key，避免與雲端雙寫（偏好與名冊備援已存於 payload） */
 export function clearPersistedLocalAppData(): void {
   try {
     localStorage.removeItem(STORE_KEY)
