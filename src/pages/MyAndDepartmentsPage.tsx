@@ -5,7 +5,7 @@ import { Modal } from '../components/Modal'
 import { useState } from 'react'
 
 /**
- * 依「我的任務／各部門」分欄檢視今日、進行中、日後再說（未完成）任務。
+ * 部門與 KPI、團隊名冊；依「我的任務／各部門」分欄檢視未完成任務。
  */
 export function MyAndDepartmentsPage() {
   const {

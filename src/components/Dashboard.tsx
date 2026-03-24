@@ -20,7 +20,7 @@ export type TabId =
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'today', label: '📅 今日' },
-  { id: 'mydept', label: '👤🏬 我的與部門' },
+  { id: 'mydept', label: '🏬 部門與KPI管理' },
   { id: 'track', label: '📉 追蹤總覽' },
   { id: 'tasks', label: '📋 任務看板' },
   { id: 'calendar', label: '🗓 行程 & 截止日' },
@@ -46,10 +46,6 @@ export function Dashboard() {
     <>
       <TeamRosterDatalist />
       <Header />
-      <div className="banner-note">
-        已可接 Supabase：有設定環境變數時會嘗試雲端同步；若匿名登入被 API
-        拒絕，請用畫面上方 Email 登入。未設定變數時資料僅在本機。
-      </div>
       <nav className="tabs" aria-label="主要分頁">
         {TABS.map((t) => (
           <button

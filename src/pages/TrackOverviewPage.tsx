@@ -89,7 +89,7 @@ export function TrackOverviewPage() {
               <h3 className="waterfall-h">① 部門 KPI</h3>
               {!dept.kpis.length ? (
                 <p className="text-muted" style={{ fontSize: 13 }}>
-                  尚未設定 KPI。至「我的與部門」分頁在該部門欄位下方新增。
+                  尚未設定 KPI。至「部門與KPI管理」分頁在該部門欄位下方新增。
                 </p>
               ) : (
                 <ul className="kpi-track-list">
