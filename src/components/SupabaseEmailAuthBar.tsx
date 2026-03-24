@@ -3,6 +3,17 @@ import { getSupabaseClient } from '../lib/supabaseClient'
 
 type Props = { visible: boolean; toast: (msg: string) => void }
 
+function formatAuthError(prefix: string, message: string): string {
+  if (
+    /rate limit exceeded|over_email_send_rate_limit|email rate limit/i.test(
+      message,
+    )
+  ) {
+    return `${prefix}：Supabase 寄信頻率已達上限（測試時連續註冊常觸發）。請隔約 30～60 分鐘再試，或帳號若已建立請直接按「登入」。可到 Dashboard → Authentication → Rate Limits 查看說明。`
+  }
+  return `${prefix}：${message}`
+}
+
 export function SupabaseEmailAuthBar({ visible, toast }: Props) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -30,7 +41,7 @@ export function SupabaseEmailAuthBar({ visible, toast }: Props) {
           password: pw,
         })
         if (error) {
-          toast(`登入失敗：${error.message}`)
+          toast(formatAuthError('登入失敗', error.message))
           return
         }
         toast('已登入，正在同步雲端…')
@@ -38,7 +49,7 @@ export function SupabaseEmailAuthBar({ visible, toast }: Props) {
       }
       const { data, error } = await client.auth.signUp({ email: em, password: pw })
       if (error) {
-        toast(`註冊失敗：${error.message}`)
+        toast(formatAuthError('註冊失敗', error.message))
         return
       }
       if (data.session) {
