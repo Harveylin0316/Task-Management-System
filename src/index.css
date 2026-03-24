@@ -1578,6 +1578,59 @@ textarea.review-input::placeholder {
   font-size: 15px;
 }
 
+.cloud-email-bar {
+  background: var(--blue-light);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+}
+
+.cloud-email-bar-inner {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.cloud-email-bar-title {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.cloud-email-bar-title code {
+  font-size: 11px;
+  background: var(--bg-section);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.cloud-email-bar-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cloud-email-input {
+  min-width: 160px;
+  flex: 1;
+  max-width: 240px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.cloud-email-btn {
+  flex-shrink: 0;
+}
+
+.cloud-email-bar-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
 @media (max-width: 900px) {
   .stats-bar {
     grid-template-columns: 1fr 1fr;

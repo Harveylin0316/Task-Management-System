@@ -8,27 +8,18 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { SupabaseEmailAuthBar } from '../components/SupabaseEmailAuthBar'
 import {
   createAsyncLocalStorageDataSource,
   type AsyncDataSource,
 } from '../lib/dataSource'
-
-function isAnonymousSignInsDisabledError(e: unknown): boolean {
-  const m =
-    e instanceof Error
-      ? e.message
-      : typeof e === 'object' &&
-          e !== null &&
-          'message' in e &&
-          typeof (e as { message: unknown }).message === 'string'
-        ? (e as { message: string }).message
-        : String(e)
-  return /anonymous sign-ins are disabled/i.test(m)
-}
 import { defaultData } from '../lib/defaultData'
 import { newId } from '../lib/id'
 import { migrateAppData } from '../lib/migrate'
-import { createSupabaseAsyncDataSource } from '../lib/supabaseAsyncDataSource'
+import {
+  createSupabaseAsyncDataSource,
+  isSupabaseAsyncDataSource,
+} from '../lib/supabaseAsyncDataSource'
 import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabaseClient'
 import type {
   AppData,
@@ -171,6 +162,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const [data, setData] = useState<AppData>(() => defaultData())
   const [hydrated, setHydrated] = useState(false)
+  const [cloudNeedsEmail, setCloudNeedsEmail] = useState(false)
   const [selectedBigProjectIdx, setSelectedBigProjectIdx] = useState(0)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const toastT = useRef(0)
@@ -181,6 +173,22 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     toastT.current = window.setTimeout(() => setToastMessage(null), 4500)
   }, [])
 
+  const reloadFromRemote = useCallback(async () => {
+    try {
+      const loaded = await sourceRef.current!.load()
+      setData(migrateAppData(loaded))
+      const src = sourceRef.current!
+      if (isSupabaseAsyncDataSource(src) && src.needsEmailToReachCloud()) {
+        setCloudNeedsEmail(true)
+      } else {
+        setCloudNeedsEmail(false)
+      }
+    } catch (e) {
+      console.error('重新載入雲端失敗', e)
+      toast('重新載入雲端資料失敗')
+    }
+  }, [toast])
+
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -188,26 +196,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         const loaded = await sourceRef.current!.load()
         if (cancelled) return
         setData(migrateAppData(loaded))
-      } catch (e) {
-        if (isAnonymousSignInsDisabledError(e)) {
-          console.warn('Supabase 未啟用匿名登入，改為本機儲存', e)
-          sourceRef.current = createAsyncLocalStorageDataSource()
-          try {
-            const loaded = await sourceRef.current.load()
-            if (!cancelled) setData(migrateAppData(loaded))
-          } catch (inner) {
-            console.error('本機載入失敗', inner)
-            if (!cancelled) setData(defaultData())
-          }
-          if (!cancelled) {
-            toast(
-              '雲端需啟用「匿名登入」：Supabase → Authentication → Providers → Anonymous 開啟。目前先使用本機儲存。',
-            )
-          }
-        } else {
-          console.error('載入資料失敗，已使用空白資料', e)
-          if (!cancelled) setData(defaultData())
+        const src = sourceRef.current!
+        if (isSupabaseAsyncDataSource(src) && src.needsEmailToReachCloud()) {
+          setCloudNeedsEmail(true)
         }
+      } catch (e) {
+        console.error('載入資料失敗，已使用空白資料', e)
+        if (!cancelled) setData(defaultData())
       } finally {
         if (!cancelled) setHydrated(true)
       }
@@ -215,7 +210,18 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [toast])
+  }, [])
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    const client = getSupabaseClient()
+    const { data } = client.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') {
+        void reloadFromRemote()
+      }
+    })
+    return () => data.subscription.unsubscribe()
+  }, [reloadFromRemote])
 
   const selectedBigProjectIdxSafe = useMemo(() => {
     const n = data.bigProjects.length
@@ -1088,7 +1094,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           載入中…
         </div>
       ) : (
-        children
+        <>
+          {cloudNeedsEmail && isSupabaseConfigured() ? (
+            <SupabaseEmailAuthBar visible toast={toast} />
+          ) : null}
+          {children}
+        </>
       )}
       {hydrated && toastMessage ? (
         <div className="toast" role="status">

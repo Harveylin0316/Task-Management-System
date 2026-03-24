@@ -34,8 +34,8 @@ export function Dashboard() {
     <>
       <Header />
       <div className="banner-note">
-        目前為開發模式：資料暫存在此瀏覽器的 localStorage。下一階段接上
-        Supabase 後，即可用帳號跨裝置讀寫同一份資料。
+        已可接 Supabase：有設定環境變數時會嘗試雲端同步；若匿名登入被 API
+        拒絕，請用畫面上方 Email 登入。未設定變數時資料僅在本機。
       </div>
       <nav className="tabs" aria-label="主要分頁">
         {TABS.map((t) => (

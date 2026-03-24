@@ -113,10 +113,11 @@ export function Header() {
           <code>supabase/migrations</code> 的 SQL，資料會同步到雲端。
         </p>
         <p className="modal-note">
-          <strong>匿名登入仍 422 時：</strong>同一專案網址須與 <code>.env</code>{' '}
-          一致；Authentication 除「Allow anonymous sign-ins」外，總覽需開啟{' '}
-          <strong>Allow new users to sign up</strong>；Providers 改完要儲存。
-          未設環境變數則僅本機；Netlify 須設相同 <code>VITE_*</code> 並重新部署。
+          若出現 <code>anonymous_provider_disabled</code>
+          ，Auth API 仍擋匿名：請用畫面上方 <strong>Email 登入／註冊</strong>（Providers
+          須開啟 Email）。並確認 <code>.env</code> 網址與專案一致、
+          <strong>Allow new users to sign up</strong> 已開。Netlify 須設{' '}
+          <code>VITE_*</code> 並重新部署。
         </p>
         <input
           ref={fileRef}
