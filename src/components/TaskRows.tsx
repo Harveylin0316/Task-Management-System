@@ -1,5 +1,11 @@
 import { useDashboard } from '../context/DashboardContext'
 import { DepartmentSelect } from './DepartmentSelect'
+import {
+  dueBadgeLabel,
+  dueKindAndOffset,
+  toDateInputValue,
+} from '../lib/dateUtils'
+import { rosterDatalistIdForDepartment } from '../lib/rosterDatalist'
 import type { TaskItem, TaskSection } from '../lib/types'
 
 export function TaskRows({
@@ -12,8 +18,15 @@ export function TaskRows({
   /** 是否顯示「我的／部門」切換（已完成區可關閉以節省空間） */
   showDepartmentPicker?: boolean
 }) {
-  const { data, toggleTask, removeTask, updateTaskDepartment, updateTaskAssignee } =
-    useDashboard()
+  const {
+    data,
+    toggleTask,
+    removeTask,
+    updateTaskDepartment,
+    updateTaskAssignee,
+    updateTaskDue,
+    toggleTaskWeeklyCommit,
+  } = useDashboard()
 
   if (!items.length) {
     return (
@@ -26,7 +39,13 @@ export function TaskRows({
 
   return (
     <>
-      {items.map((item) => (
+      {items.map((item) => {
+        const { kind: dueKind, daysUntil } = dueKindAndOffset(item.due)
+        const assigneeListId = rosterDatalistIdForDepartment(
+          item.departmentId,
+          data.teamRoster,
+        )
+        return (
         <div key={item.id} className="task-item">
           <div className={`priority-dot p-${item.priority || 'mid'}`} />
           <button
@@ -52,16 +71,54 @@ export function TaskRows({
                 {section === 'done' && item.assignee ? (
                   <span>✋ {item.assignee}</span>
                 ) : null}
-                {item.due ? <span>📅 {item.due}</span> : null}
+                {section === 'done' && item.weeklyCommit ? (
+                  <span className="tag tag-plan">本週承諾</span>
+                ) : null}
+                {item.due ? (
+                  <>
+                    {section !== 'done' && !item.done && dueKind !== 'none' ? (
+                      <span
+                        className={`due-badge due-${dueKind}`}
+                        title={item.due}
+                      >
+                        {dueBadgeLabel(dueKind, daysUntil)}
+                      </span>
+                    ) : null}
+                    <span>📅 {item.due}</span>
+                  </>
+                ) : null}
                 {item.note ? <span>{item.note}</span> : null}
               </div>
               {showDepartmentPicker && section !== 'done' ? (
                 <>
+                  <button
+                    type="button"
+                    className={`task-weekly-pill ${item.weeklyCommit ? 'on' : ''}`}
+                    title="標記為本週承諾（週會／週報）"
+                    onClick={() => toggleTaskWeeklyCommit(section, item.id)}
+                    aria-pressed={Boolean(item.weeklyCommit)}
+                  >
+                    本週承諾
+                  </button>
+                  <input
+                    type="date"
+                    className="input task-due-input"
+                    title="截止日"
+                    value={toDateInputValue(item.due)}
+                    onChange={(e) =>
+                      updateTaskDue(
+                        section,
+                        item.id,
+                        e.target.value || undefined,
+                      )
+                    }
+                    aria-label="截止日"
+                  />
                   <input
                     type="text"
                     className="input task-assignee-input"
                     placeholder="負責人"
-                    list="wm-team-roster-datalist"
+                    list={assigneeListId}
                     value={item.assignee ?? ''}
                     onChange={(e) =>
                       updateTaskAssignee(section, item.id, e.target.value)
@@ -89,7 +146,8 @@ export function TaskRows({
             ×
           </button>
         </div>
-      ))}
+        )
+      })}
     </>
   )
 }

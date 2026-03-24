@@ -79,6 +79,7 @@ export function migrateAppData(raw: unknown): AppData {
     note: t.note != null ? String(t.note) : undefined,
     completedAt:
       t.completedAt != null ? String(t.completedAt) : undefined,
+    ...(t.weeklyCommit === true ? { weeklyCommit: true as const } : {}),
   })
 
   const mapWaiting = (
@@ -88,6 +89,10 @@ export function migrateAppData(raw: unknown): AppData {
     title: String(w.title ?? ''),
     who: String(w.who ?? ''),
     since: String(w.since ?? new Date().toLocaleDateString('zh-TW')),
+    expectedBy:
+      w.expectedBy != null && String(w.expectedBy).trim() !== ''
+        ? String(w.expectedBy).trim()
+        : undefined,
   })
 
   const mapSmallProject = (

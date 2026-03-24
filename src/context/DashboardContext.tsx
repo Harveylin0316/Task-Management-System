@@ -14,8 +14,10 @@ import {
   type AsyncDataSource,
 } from '../lib/dataSource'
 import { defaultData } from '../lib/defaultData'
+import { toISODateLocal } from '../lib/dateUtils'
 import { newId } from '../lib/id'
 import { migrateAppData } from '../lib/migrate'
+import { appendDoneTasksToAccomplished } from '../lib/weeklyAccomplished'
 import {
   createSupabaseAsyncDataSource,
   isSupabaseAsyncDataSource,
@@ -27,6 +29,7 @@ import type {
   Priority,
   SmallProject,
   TaskSection,
+  WaitingItem,
 } from '../lib/types'
 
 function getOrCreateAsyncSource(): AsyncDataSource {
@@ -54,7 +57,13 @@ export type DashboardContextValue = {
       note?: string
       departmentId?: string | null
       assignee?: string
+      weeklyCommit?: boolean
     },
+  ) => void
+  updateTaskDue: (
+    section: TaskSection,
+    taskId: string,
+    due: string | undefined,
   ) => void
   updateTaskAssignee: (
     section: TaskSection,
@@ -66,6 +75,7 @@ export type DashboardContextValue = {
     taskId: string,
     departmentId: string | null,
   ) => void
+  toggleTaskWeeklyCommit: (section: TaskSection, taskId: string) => void
   addDepartment: (name: string) => void
   renameDepartment: (id: string, name: string) => void
   removeDepartment: (id: string) => void
@@ -99,6 +109,11 @@ export type DashboardContextValue = {
   clearDone: () => void
   addWaiting: (raw: string) => void
   removeWaiting: (id: string) => void
+  updateWaitingItem: (
+    id: string,
+    patch: Partial<Pick<WaitingItem, 'who' | 'title' | 'since' | 'expectedBy'>>,
+  ) => void
+  appendDoneToWeeklyAccomplished: () => void
   addSmallProject: (p: {
     name: string
     due?: string
@@ -318,6 +333,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         note?: string
         departmentId?: string | null
         assignee?: string
+        weeklyCommit?: boolean
       },
     ) => {
       const t = title.trim()
@@ -332,6 +348,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         opts?.assignee != null && opts.assignee.trim() !== ''
           ? opts.assignee.trim()
           : undefined
+      const due =
+        opts?.due != null && opts.due.trim() !== ''
+          ? opts.due.trim()
+          : undefined
       setData((prev) => ({
         ...prev,
         [section]: [
@@ -344,10 +364,25 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             created: new Date().toLocaleDateString('zh-TW'),
             departmentId: dept,
             assignee,
-            due: opts?.due,
+            due,
             note: opts?.note,
+            ...(opts?.weeklyCommit === true ? { weeklyCommit: true } : {}),
           },
         ],
+      }))
+    },
+    [],
+  )
+
+  const updateTaskDue = useCallback(
+    (section: TaskSection, taskId: string, due: string | undefined) => {
+      const v =
+        due != null && due.trim() !== '' ? due.trim() : undefined
+      setData((prev) => ({
+        ...prev,
+        [section]: prev[section].map((t) =>
+          t.id === taskId ? { ...t, due: v } : t,
+        ),
       }))
     },
     [],
@@ -375,6 +410,20 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         ...prev,
         [section]: prev[section].map((t) =>
           t.id === taskId ? { ...t, departmentId } : t,
+        ),
+      }))
+    },
+    [],
+  )
+
+  const toggleTaskWeeklyCommit = useCallback(
+    (section: TaskSection, taskId: string) => {
+      setData((prev) => ({
+        ...prev,
+        [section]: prev[section].map((t) =>
+          t.id === taskId
+            ? { ...t, weeklyCommit: !t.weeklyCommit }
+            : t,
         ),
       }))
     },
@@ -623,13 +672,51 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             id: newId(),
             title,
             who,
-            since: new Date().toLocaleDateString('zh-TW'),
+            since: toISODateLocal(),
           },
         ],
       }))
     },
     [],
   )
+
+  const updateWaitingItem = useCallback(
+    (
+      id: string,
+      patch: Partial<Pick<WaitingItem, 'who' | 'title' | 'since' | 'expectedBy'>>,
+    ) => {
+      setData((prev) => ({
+        ...prev,
+        waiting: prev.waiting.map((w) =>
+          w.id === id ? { ...w, ...patch } : w,
+        ),
+      }))
+    },
+    [],
+  )
+
+  const appendDoneToWeeklyAccomplished = useCallback(() => {
+    let merged = false
+    let emptyDone = false
+    setData((prev) => {
+      const wr = prev.weeklyReview || {}
+      const acc = wr.accomplished || ''
+      if (!prev.done.length) {
+        emptyDone = true
+        return prev
+      }
+      const next = appendDoneTasksToAccomplished(acc, prev.done)
+      if (next === acc) return prev
+      merged = true
+      return {
+        ...prev,
+        weeklyReview: { ...wr, accomplished: next },
+      }
+    })
+    if (emptyDone) toast('尚無已完成任務可帶入')
+    else if (!merged) toast('完成清單已在文字框中，無新增列')
+    else toast('已將完成任務併入「本週完成」')
+  }, [toast])
 
   const removeWaiting = useCallback((id: string) => {
     setData((prev) => ({
@@ -1082,8 +1169,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       importJsonFromFile,
       exportMarkdown,
       addTask,
+      updateTaskDue,
       updateTaskAssignee,
       updateTaskDepartment,
+      toggleTaskWeeklyCommit,
       addDepartment,
       addDepartmentKpi,
       updateDepartmentKpi,
@@ -1098,6 +1187,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       clearDone,
       addWaiting,
       removeWaiting,
+      updateWaitingItem,
+      appendDoneToWeeklyAccomplished,
       addSmallProject,
       updateSmallProject,
       updateSmallProjectProgress,
@@ -1133,8 +1224,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       importJsonFromFile,
       exportMarkdown,
       addTask,
+      updateTaskDue,
       updateTaskAssignee,
       updateTaskDepartment,
+      toggleTaskWeeklyCommit,
       addDepartment,
       addDepartmentKpi,
       updateDepartmentKpi,
@@ -1149,6 +1242,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       clearDone,
       addWaiting,
       removeWaiting,
+      updateWaitingItem,
+      appendDoneToWeeklyAccomplished,
       addSmallProject,
       updateSmallProject,
       updateSmallProjectProgress,

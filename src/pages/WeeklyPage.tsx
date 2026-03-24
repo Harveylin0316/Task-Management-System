@@ -6,6 +6,7 @@ export function WeeklyPage() {
     patchWeeklyReview,
     acknowledgeWeeklySaved,
     exportMarkdown,
+    appendDoneToWeeklyAccomplished,
   } = useDashboard()
   const wr = data.weeklyReview || {}
 
@@ -31,6 +32,16 @@ export function WeeklyPage() {
               <div className="empty" style={{ padding: '16px 0' }}>
                 尚無完成項目
               </div>
+            ) : null}
+            {data.done.length ? (
+              <button
+                type="button"
+                className="btn"
+                style={{ marginTop: 10 }}
+                onClick={appendDoneToWeeklyAccomplished}
+              >
+                將上方已完成任務併入「本週完成」文字框
+              </button>
             ) : null}
           </div>
           <textarea

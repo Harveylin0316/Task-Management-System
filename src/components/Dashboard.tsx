@@ -28,14 +28,27 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'projects', label: '🗂 專案管理' },
 ]
 
-function TeamRosterDatalist() {
+function TeamRosterDatalists() {
   const { data } = useDashboard()
   return (
-    <datalist id="wm-team-roster-datalist">
-      {data.teamRoster.map((m) => (
-        <option key={m.id} value={m.name} />
-      ))}
-    </datalist>
+    <>
+      <datalist id="wm-roster-all">
+        {data.teamRoster.map((m) => (
+          <option key={m.id} value={m.name} />
+        ))}
+      </datalist>
+      {data.departments.map((d) => {
+        const names = data.teamRoster.filter((m) => m.departmentId === d.id)
+        if (!names.length) return null
+        return (
+          <datalist key={d.id} id={`wm-roster-dept-${d.id}`}>
+            {names.map((m) => (
+              <option key={m.id} value={m.name} />
+            ))}
+          </datalist>
+        )
+      })}
+    </>
   )
 }
 
@@ -44,7 +57,7 @@ export function Dashboard() {
 
   return (
     <>
-      <TeamRosterDatalist />
+      <TeamRosterDatalists />
       <Header />
       <nav className="tabs" aria-label="主要分頁">
         {TABS.map((t) => (

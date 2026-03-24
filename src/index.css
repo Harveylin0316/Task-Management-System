@@ -586,6 +586,116 @@ select.input {
   color: var(--red);
 }
 
+.waiting-expected {
+  color: var(--text-muted);
+}
+
+.waiting-expected.overdue {
+  color: var(--red);
+  font-weight: 600;
+}
+
+.waiting-expected-row {
+  margin-top: 6px;
+}
+
+.waiting-expected-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.waiting-expected-input {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.due-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.due-badge.due-overdue {
+  background: #fee2e2;
+  color: var(--red);
+}
+
+.due-badge.due-today {
+  background: var(--orange-light);
+  color: var(--orange);
+}
+
+.due-badge.due-soon {
+  background: var(--blue-light);
+  color: var(--blue);
+}
+
+.due-badge.due-later {
+  background: var(--bg-section);
+  color: var(--text-secondary);
+}
+
+.task-due-input {
+  flex: 0 0 auto;
+  max-width: 118px;
+  padding: 4px 6px;
+  font-size: 11px;
+}
+
+.task-weekly-pill {
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    border 0.15s,
+    background 0.15s,
+    color 0.15s;
+}
+
+.task-weekly-pill:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.task-weekly-pill.on {
+  background: var(--blue-light);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+.tasks-board-toolbar {
+  margin-bottom: 12px;
+}
+
+.weekly-commit-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.weekly-commit-filter input {
+  cursor: pointer;
+}
+
 .week-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

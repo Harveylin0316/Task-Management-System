@@ -39,6 +39,8 @@ export interface TaskItem {
   due?: string
   note?: string
   completedAt?: string
+  /** 本週承諾（週會／週報對齊） */
+  weeklyCommit?: boolean
 }
 
 export interface WaitingItem {
@@ -46,6 +48,8 @@ export interface WaitingItem {
   title: string
   who: string
   since: string
+  /** 預期回覆日，建議 YYYY-MM-DD */
+  expectedBy?: string
 }
 
 export interface SmallProject {

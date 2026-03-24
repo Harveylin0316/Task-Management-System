@@ -3,21 +3,27 @@ import { useDashboard } from '../context/DashboardContext'
 import { TaskRows } from '../components/TaskRows'
 import { ScopeFilterBar } from '../components/ScopeFilterBar'
 import { DepartmentSelect } from '../components/DepartmentSelect'
+import {
+  expectedReplyOverdue,
+  toDateInputValue,
+  waitingDaysElapsed,
+} from '../lib/dateUtils'
+import { rosterDatalistIdForDepartment } from '../lib/rosterDatalist'
 import { taskMatchesScope, type TaskScopeFilter } from '../lib/taskScope'
 
-function waitingDays(since: string): number {
-  const t = new Date(since).getTime()
-  if (Number.isNaN(t)) return 0
-  return Math.floor((Date.now() - t) / 86400000)
-}
-
 export function TodayPage() {
-  const { data, addTask, addWaiting, removeWaiting } = useDashboard()
+  const { data, addTask, addWaiting, removeWaiting, updateWaitingItem } =
+    useDashboard()
   const [todayIn, setTodayIn] = useState('')
   const [waitIn, setWaitIn] = useState('')
   const [newTaskDept, setNewTaskDept] = useState<string | null>(null)
   const [todayAssignee, setTodayAssignee] = useState('')
   const [scopeFilter, setScopeFilter] = useState<TaskScopeFilter>('all')
+
+  const assigneeListToday = rosterDatalistIdForDepartment(
+    newTaskDept,
+    data.teamRoster,
+  )
 
   const todayFiltered = useMemo(
     () => data.today.filter((t) => taskMatchesScope(t, scopeFilter)),
@@ -79,7 +85,7 @@ export function TodayPage() {
               <input
                 className="input task-assignee-input"
                 placeholder="負責人"
-                list="wm-team-roster-datalist"
+                list={assigneeListToday}
                 value={todayAssignee}
                 onChange={(e) => setTodayAssignee(e.target.value)}
               />
@@ -128,21 +134,51 @@ export function TodayPage() {
               </div>
             ) : (
               data.waiting.map((w) => {
-                const days = waitingDays(w.since)
+                const days = waitingDaysElapsed(w.since)
                 const cls =
                   days >= 5 ? 'days-over' : days >= 3 ? 'days-warn' : 'days-ok'
                 const initials = (w.who || '?').slice(0, 2).toUpperCase()
+                const expOver = expectedReplyOverdue(w.expectedBy)
                 return (
                   <div key={w.id} className="waiting-item">
                     <div className="waiting-who">{initials}</div>
                     <div className="waiting-content">
                       <div className="waiting-title">{w.title}</div>
                       <div className="waiting-since">
-                        等待 {w.who || ''}
-                        {w.since ? ` · 自 ${w.since}` : ''}
+                        對象：{w.who.trim() ? w.who : '（未填）'}
+                        {w.since ? ` · 起算 ${w.since}` : ''}
+                        {w.expectedBy ? (
+                          <span
+                            className={
+                              expOver ? 'waiting-expected overdue' : 'waiting-expected'
+                            }
+                          >
+                            {' '}
+                            · 預期 {w.expectedBy}
+                            {expOver ? '（已過）' : ''}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="waiting-expected-row">
+                        <label className="waiting-expected-label">
+                          預期回覆
+                          <input
+                            type="date"
+                            className="input waiting-expected-input"
+                            value={toDateInputValue(w.expectedBy)}
+                            onChange={(e) =>
+                              updateWaitingItem(w.id, {
+                                expectedBy: e.target.value || undefined,
+                              })
+                            }
+                            aria-label="預期回覆日"
+                          />
+                        </label>
                       </div>
                     </div>
-                    <span className={`waiting-days ${cls}`}>{days}天</span>
+                    <span className={`waiting-days ${cls}`} title="已等待天數">
+                      {days} 天
+                    </span>
                     <button
                       type="button"
                       className="icon-btn"

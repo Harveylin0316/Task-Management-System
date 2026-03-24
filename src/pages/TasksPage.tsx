@@ -5,6 +5,7 @@ import { TaskRows } from '../components/TaskRows'
 import { ScopeFilterBar } from '../components/ScopeFilterBar'
 import { DepartmentSelect } from '../components/DepartmentSelect'
 import { parseParticipantNames } from '../lib/parseParticipants'
+import { rosterDatalistIdForDepartment } from '../lib/rosterDatalist'
 import { taskMatchesScope, type TaskScopeFilter } from '../lib/taskScope'
 
 export function TasksPage() {
@@ -36,14 +37,31 @@ export function TasksPage() {
   const [scopeFilter, setScopeFilter] = useState<TaskScopeFilter>('all')
   const [deptActive, setDeptActive] = useState<string | null>(null)
   const [deptSomeday, setDeptSomeday] = useState<string | null>(null)
+  const [onlyWeeklyCommit, setOnlyWeeklyCommit] = useState(false)
+
+  const listActive = rosterDatalistIdForDepartment(deptActive, data.teamRoster)
+  const listSomeday = rosterDatalistIdForDepartment(
+    deptSomeday,
+    data.teamRoster,
+  )
 
   const activeF = useMemo(
-    () => data.active.filter((t) => taskMatchesScope(t, scopeFilter)),
-    [data.active, scopeFilter],
+    () =>
+      data.active.filter(
+        (t) =>
+          taskMatchesScope(t, scopeFilter) &&
+          (!onlyWeeklyCommit || t.weeklyCommit),
+      ),
+    [data.active, scopeFilter, onlyWeeklyCommit],
   )
   const somedayF = useMemo(
-    () => data.someday.filter((t) => taskMatchesScope(t, scopeFilter)),
-    [data.someday, scopeFilter],
+    () =>
+      data.someday.filter(
+        (t) =>
+          taskMatchesScope(t, scopeFilter) &&
+          (!onlyWeeklyCommit || t.weeklyCommit),
+      ),
+    [data.someday, scopeFilter, onlyWeeklyCommit],
   )
   const doneF = useMemo(
     () => data.done.filter((t) => taskMatchesScope(t, scopeFilter)),
@@ -101,6 +119,16 @@ export function TasksPage() {
         value={scopeFilter}
         onChange={setScopeFilter}
       />
+      <div className="tasks-board-toolbar">
+        <label className="weekly-commit-filter">
+          <input
+            type="checkbox"
+            checked={onlyWeeklyCommit}
+            onChange={(e) => setOnlyWeeklyCommit(e.target.checked)}
+          />
+          只看本週承諾
+        </label>
+      </div>
       <div className="grid-3">
         <div className="card">
           <div className="card-header">
@@ -119,7 +147,7 @@ export function TasksPage() {
               <input
                 className="input task-assignee-input"
                 placeholder="負責人"
-                list="wm-team-roster-datalist"
+                list={listActive}
                 value={assigneeActive}
                 onChange={(e) => setAssigneeActive(e.target.value)}
               />
@@ -172,7 +200,7 @@ export function TasksPage() {
               <input
                 className="input task-assignee-input"
                 placeholder="負責人"
-                list="wm-team-roster-datalist"
+                list={listSomeday}
                 value={assigneeSomeday}
                 onChange={(e) => setAssigneeSomeday(e.target.value)}
               />

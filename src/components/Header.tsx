@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useDashboard } from '../context/DashboardContext'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
+import { rosterDatalistIdForDepartment } from '../lib/rosterDatalist'
 import { Modal } from './Modal'
 import { DepartmentSelect } from './DepartmentSelect'
 
@@ -21,7 +22,13 @@ export function Header() {
   )
   const [addTaskDept, setAddTaskDept] = useState<string | null>(null)
   const [addAssignee, setAddAssignee] = useState('')
+  const [addDue, setAddDue] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const addAssigneeListId = rosterDatalistIdForDepartment(
+    addTaskDept,
+    data.teamRoster,
+  )
 
   const headerDate = useMemo(() => {
     const now = new Date()
@@ -37,8 +44,10 @@ export function Header() {
     addTask(addSection, t, {
       departmentId: addTaskDept,
       assignee: addAssignee,
+      due: addDue || undefined,
     })
     setAddTitle('')
+    setAddDue('')
     setAddOpen(false)
     toast('任務已新增')
   }
@@ -193,10 +202,21 @@ export function Header() {
             id="add-task-assignee"
             className="input"
             style={{ width: '100%' }}
-            list="wm-team-roster-datalist"
+            list={addAssigneeListId}
             value={addAssignee}
             onChange={(e) => setAddAssignee(e.target.value)}
-            placeholder="與追蹤總覽連動"
+            placeholder="依部門篩選名冊建議"
+          />
+        </div>
+        <div className="modal-field">
+          <label htmlFor="add-task-due">截止日（可留空）</label>
+          <input
+            id="add-task-due"
+            type="date"
+            className="input"
+            style={{ width: '100%' }}
+            value={addDue}
+            onChange={(e) => setAddDue(e.target.value)}
           />
         </div>
       </Modal>
