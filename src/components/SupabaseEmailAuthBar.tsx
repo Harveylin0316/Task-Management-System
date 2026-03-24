@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { getSupabaseClient } from '../lib/supabaseClient'
 
 type Props = { visible: boolean; toast: (msg: string) => void }
@@ -80,7 +80,13 @@ export function SupabaseEmailAuthBar({ visible, toast }: Props) {
           此專案匿名登入被 Auth API 拒絕（<code>anonymous_provider_disabled</code>
           ）。請用 Email 登入後，資料會寫入 Supabase；登入前仍暫存本機。
         </p>
-        <div className="cloud-email-bar-form">
+        <form
+          className="cloud-email-bar-form"
+          onSubmit={(e: FormEvent<HTMLFormElement>) => {
+            e.preventDefault()
+            void run('signin')
+          }}
+        >
           <input
             type="email"
             autoComplete="email"
@@ -100,10 +106,9 @@ export function SupabaseEmailAuthBar({ visible, toast }: Props) {
             disabled={busy}
           />
           <button
-            type="button"
+            type="submit"
             className="btn btn-primary cloud-email-btn"
             disabled={busy}
-            onClick={() => void run('signin')}
           >
             登入
           </button>
@@ -115,7 +120,7 @@ export function SupabaseEmailAuthBar({ visible, toast }: Props) {
           >
             註冊
           </button>
-        </div>
+        </form>
         <p className="cloud-email-bar-hint">
           請在 Supabase → Authentication → Providers 開啟 <strong>Email</strong>
           。若已關閉「Confirm email」，註冊後通常會直接登入；若沒有，請按「登入」。

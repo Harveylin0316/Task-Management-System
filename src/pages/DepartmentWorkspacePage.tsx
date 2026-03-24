@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  type FormEvent,
+} from 'react'
 import { useDashboard } from '../context/DashboardContext'
 import { TaskRows } from '../components/TaskRows'
 import { Modal } from '../components/Modal'
@@ -26,6 +32,7 @@ function DeptProjectCard({
   projectOptions: { id: string; name: string }[]
   rosterListId: string
 }) {
+  const editFormId = `wm-deptws-proj-edit-${project.id}`
   const {
     data,
     addTask,
@@ -214,60 +221,66 @@ function DeptProjectCard({
               取消
             </button>
             <button
-              type="button"
+              type="submit"
+              form={editFormId}
               className="btn btn-primary"
-              onClick={() => {
-                updateSmallProject(project.id, {
-                  name: epName.trim(),
-                  due: epDue.trim(),
-                  owner: epOwner.trim(),
-                  participants: parseParticipantNames(epParticipantsRaw),
-                })
-                setEditOpen(false)
-                toast('專案已更新')
-              }}
             >
               儲存
             </button>
           </div>
         }
       >
-        <div className="modal-field">
-          <label>專案名稱</label>
-          <input
-            className="input"
-            style={{ width: '100%' }}
-            value={epName}
-            onChange={(e) => setEpName(e.target.value)}
-          />
-        </div>
-        <div className="modal-field">
-          <label>截止日</label>
-          <input
-            className="input"
-            style={{ width: '100%' }}
-            value={epDue}
-            onChange={(e) => setEpDue(e.target.value)}
-          />
-        </div>
-        <div className="modal-field">
-          <label>負責人</label>
-          <input
-            className="input"
-            style={{ width: '100%' }}
-            value={epOwner}
-            onChange={(e) => setEpOwner(e.target.value)}
-          />
-        </div>
-        <div className="modal-field">
-          <label>參與人員（逗號分隔）</label>
-          <textarea
-            className="review-input"
-            style={{ minHeight: 72 }}
-            value={epParticipantsRaw}
-            onChange={(e) => setEpParticipantsRaw(e.target.value)}
-          />
-        </div>
+        <form
+          id={editFormId}
+          onSubmit={(e: FormEvent<HTMLFormElement>) => {
+            e.preventDefault()
+            updateSmallProject(project.id, {
+              name: epName.trim(),
+              due: epDue.trim(),
+              owner: epOwner.trim(),
+              participants: parseParticipantNames(epParticipantsRaw),
+            })
+            setEditOpen(false)
+            toast('專案已更新')
+          }}
+        >
+          <div className="modal-field">
+            <label>專案名稱</label>
+            <input
+              className="input"
+              style={{ width: '100%' }}
+              value={epName}
+              onChange={(e) => setEpName(e.target.value)}
+            />
+          </div>
+          <div className="modal-field">
+            <label>截止日</label>
+            <input
+              className="input"
+              style={{ width: '100%' }}
+              value={epDue}
+              onChange={(e) => setEpDue(e.target.value)}
+            />
+          </div>
+          <div className="modal-field">
+            <label>負責人</label>
+            <input
+              className="input"
+              style={{ width: '100%' }}
+              value={epOwner}
+              onChange={(e) => setEpOwner(e.target.value)}
+            />
+          </div>
+          <div className="modal-field">
+            <label>參與人員（逗號分隔）</label>
+            <textarea
+              className="review-input"
+              style={{ minHeight: 72 }}
+              value={epParticipantsRaw}
+              onChange={(e) => setEpParticipantsRaw(e.target.value)}
+            />
+          </div>
+        </form>
       </Modal>
     </div>
   )
@@ -365,7 +378,8 @@ export function DepartmentWorkspacePage() {
     [data.done, deptId],
   )
 
-  const submitNewProject = () => {
+  const submitNewProject = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
     const n = pName.trim()
     const ft = pFirstTask.trim()
     if (!n) {
@@ -656,15 +670,16 @@ export function DepartmentWorkspacePage() {
               取消
             </button>
             <button
-              type="button"
+              type="submit"
+              form="wm-form-deptws-new-project"
               className="btn btn-primary"
-              onClick={submitNewProject}
             >
               建立
             </button>
           </div>
         }
       >
+        <form id="wm-form-deptws-new-project" onSubmit={submitNewProject}>
         <p className="modal-note" style={{ marginBottom: 12 }}>
           專案會自動歸於目前選擇的部門（{dept.name}），並<strong>必須</strong>建立第一筆任務。
         </p>
@@ -729,6 +744,7 @@ export function DepartmentWorkspacePage() {
             onChange={(e) => setPParticipantsRaw(e.target.value)}
           />
         </div>
+        </form>
       </Modal>
     </>
   )

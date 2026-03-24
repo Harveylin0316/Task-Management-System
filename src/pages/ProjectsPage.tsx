@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useDashboard } from '../context/DashboardContext'
 import { calcBigProjectProgress } from '../lib/progress'
 import type { BigProjectStatus } from '../lib/types'
@@ -104,7 +104,8 @@ export function ProjectsPage() {
     })
   })
 
-  const submitBig = () => {
+  const submitBig = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
     addBigProject({
       name: bfName,
       goal: bfGoal,
@@ -120,6 +121,64 @@ export function ProjectsPage() {
     setBfDesc('')
     setBfDeptId(null)
     setBigOpen(false)
+  }
+
+  const submitMilestoneModal = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!projectId) return
+    addMilestone(projectId, {
+      title: msTitle,
+      date: msDate,
+      owner: msOwner,
+    })
+    setMsTitle('')
+    setMsDate('')
+    setMsOwner('')
+    setMsOpen(false)
+  }
+
+  const submitTeamMemberModal = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!projectId) return
+    addTeamMember(projectId, {
+      name: tmName,
+      role: tmRole,
+      tasks: tmTasks,
+    })
+    setTmName('')
+    setTmRole('')
+    setTmTasks('')
+    setTmOpen(false)
+  }
+
+  const submitSubtaskModal = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!projectId) return
+    addSubtask(projectId, {
+      title: stTitle,
+      owner: stOwner,
+      due: stDue,
+    })
+    setStTitle('')
+    setStOwner('')
+    setStDue('')
+    setStOpen(false)
+  }
+
+  const submitRiskModal = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!projectId) return
+    addRisk(projectId, {
+      title: rkTitle,
+      level: rkLevel,
+      desc: rkDesc,
+      owner: rkOwner,
+    })
+    setRkTitle('')
+    setRkLevel('mid')
+    setRkDesc('')
+    setRkOwner('')
+    setRkOpen(false)
   }
 
   const openIfProject = (fn: () => void) => {
@@ -652,12 +711,17 @@ export function ProjectsPage() {
             <button type="button" className="btn" onClick={() => setBigOpen(false)}>
               取消
             </button>
-            <button type="button" className="btn btn-primary" onClick={submitBig}>
+            <button
+              type="submit"
+              form="wm-form-project-big"
+              className="btn btn-primary"
+            >
               建立
             </button>
           </div>
         }
       >
+        <form id="wm-form-project-big" onSubmit={submitBig}>
         <div className="modal-field">
           <label htmlFor="bf-name">專案名稱</label>
           <input
@@ -719,6 +783,7 @@ export function ProjectsPage() {
             onChange={(e) => setBfDesc(e.target.value)}
           />
         </div>
+        </form>
       </Modal>
 
       <Modal
@@ -731,27 +796,16 @@ export function ProjectsPage() {
               取消
             </button>
             <button
-              type="button"
+              type="submit"
+              form="wm-form-project-ms"
               className="btn btn-primary"
-              onClick={() => {
-                if (projectId) {
-                  addMilestone(projectId, {
-                    title: msTitle,
-                    date: msDate,
-                    owner: msOwner,
-                  })
-                  setMsTitle('')
-                  setMsDate('')
-                  setMsOwner('')
-                  setMsOpen(false)
-                }
-              }}
             >
               新增
             </button>
           </div>
         }
       >
+        <form id="wm-form-project-ms" onSubmit={submitMilestoneModal}>
         <div className="modal-field">
           <label>名稱</label>
           <input
@@ -780,6 +834,7 @@ export function ProjectsPage() {
             onChange={(e) => setMsOwner(e.target.value)}
           />
         </div>
+        </form>
       </Modal>
 
       <Modal
@@ -792,27 +847,16 @@ export function ProjectsPage() {
               取消
             </button>
             <button
-              type="button"
+              type="submit"
+              form="wm-form-project-tm"
               className="btn btn-primary"
-              onClick={() => {
-                if (projectId) {
-                  addTeamMember(projectId, {
-                    name: tmName,
-                    role: tmRole,
-                    tasks: tmTasks,
-                  })
-                  setTmName('')
-                  setTmRole('')
-                  setTmTasks('')
-                  setTmOpen(false)
-                }
-              }}
             >
               新增
             </button>
           </div>
         }
       >
+        <form id="wm-form-project-tm" onSubmit={submitTeamMemberModal}>
         <div className="modal-field">
           <label>姓名</label>
           <input
@@ -840,6 +884,7 @@ export function ProjectsPage() {
             onChange={(e) => setTmTasks(e.target.value)}
           />
         </div>
+        </form>
       </Modal>
 
       <Modal
@@ -852,27 +897,16 @@ export function ProjectsPage() {
               取消
             </button>
             <button
-              type="button"
+              type="submit"
+              form="wm-form-project-st"
               className="btn btn-primary"
-              onClick={() => {
-                if (projectId) {
-                  addSubtask(projectId, {
-                    title: stTitle,
-                    owner: stOwner,
-                    due: stDue,
-                  })
-                  setStTitle('')
-                  setStOwner('')
-                  setStDue('')
-                  setStOpen(false)
-                }
-              }}
             >
               新增
             </button>
           </div>
         }
       >
+        <form id="wm-form-project-st" onSubmit={submitSubtaskModal}>
         <div className="modal-field">
           <label>子任務</label>
           <input
@@ -900,6 +934,7 @@ export function ProjectsPage() {
             onChange={(e) => setStDue(e.target.value)}
           />
         </div>
+        </form>
       </Modal>
 
       <Modal
@@ -912,29 +947,16 @@ export function ProjectsPage() {
               取消
             </button>
             <button
-              type="button"
+              type="submit"
+              form="wm-form-project-rk"
               className="btn btn-primary"
-              onClick={() => {
-                if (projectId) {
-                  addRisk(projectId, {
-                    title: rkTitle,
-                    level: rkLevel,
-                    desc: rkDesc,
-                    owner: rkOwner,
-                  })
-                  setRkTitle('')
-                  setRkLevel('mid')
-                  setRkDesc('')
-                  setRkOwner('')
-                  setRkOpen(false)
-                }
-              }}
             >
               新增
             </button>
           </div>
         }
       >
+        <form id="wm-form-project-rk" onSubmit={submitRiskModal}>
         <div className="modal-field">
           <label>描述</label>
           <input
@@ -977,6 +999,7 @@ export function ProjectsPage() {
             onChange={(e) => setRkOwner(e.target.value)}
           />
         </div>
+        </form>
       </Modal>
     </>
   )

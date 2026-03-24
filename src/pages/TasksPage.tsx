@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { useDashboard } from '../context/DashboardContext'
 import { Modal } from '../components/Modal'
 import { TaskRows } from '../components/TaskRows'
@@ -77,7 +77,8 @@ export function TasksPage() {
     [data.projects],
   )
 
-  const submitProject = () => {
+  const submitProject = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
     const ft = pFirstTask.trim()
     addSmallProject({
       name: pName,
@@ -110,7 +111,8 @@ export function TasksPage() {
     setEpParticipantsRaw(p.participants.join(', '))
   }
 
-  const saveEditProject = () => {
+  const saveEditProject = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
     if (!editProjectId) return
     updateSmallProject(editProjectId, {
       name: epName.trim(),
@@ -384,15 +386,16 @@ export function TasksPage() {
               取消
             </button>
             <button
-              type="button"
+              type="submit"
+              form="wm-form-tasks-new-project"
               className="btn btn-primary"
-              onClick={submitProject}
             >
               新增
             </button>
           </div>
         }
       >
+        <form id="wm-form-tasks-new-project" onSubmit={submitProject}>
         <div className="modal-field">
           <label htmlFor="sp-name">專案名稱</label>
           <input
@@ -472,6 +475,7 @@ export function TasksPage() {
             onChange={(e) => setPOwner(e.target.value)}
           />
         </div>
+        </form>
       </Modal>
 
       <Modal
@@ -484,15 +488,16 @@ export function TasksPage() {
               取消
             </button>
             <button
-              type="button"
+              type="submit"
+              form="wm-form-tasks-edit-project"
               className="btn btn-primary"
-              onClick={saveEditProject}
             >
               儲存
             </button>
           </div>
         }
       >
+        <form id="wm-form-tasks-edit-project" onSubmit={saveEditProject}>
         <div className="modal-field">
           <label>專案名稱</label>
           <input
@@ -538,6 +543,7 @@ export function TasksPage() {
             onChange={(e) => setEpOwner(e.target.value)}
           />
         </div>
+        </form>
       </Modal>
     </>
   )

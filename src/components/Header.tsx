@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { useDashboard } from '../context/DashboardContext'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
 import { rosterDatalistIdForDepartment } from '../lib/rosterDatalist'
@@ -38,7 +38,8 @@ export function Header() {
 
   const cloudReady = isSupabaseConfigured()
 
-  const submitAdd = () => {
+  const submitAdd = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
     const t = addTitle.trim()
     if (!t) return
     addTask(addSection, t, {
@@ -150,75 +151,78 @@ export function Header() {
             <button type="button" className="btn" onClick={() => setAddOpen(false)}>
               取消
             </button>
-            <button type="button" className="btn btn-primary" onClick={submitAdd}>
+            <button
+              type="submit"
+              form="wm-form-header-add-task"
+              className="btn btn-primary"
+            >
               新增
             </button>
           </div>
         }
       >
-        <div className="modal-field">
-          <label htmlFor="add-task-title">任務內容</label>
-          <input
-            id="add-task-title"
-            className="input"
-            style={{ width: '100%' }}
-            value={addTitle}
-            onChange={(e) => setAddTitle(e.target.value)}
-            placeholder="要做的事…"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submitAdd()
-            }}
-          />
-        </div>
-        <div className="modal-field">
-          <label htmlFor="add-task-section">區塊</label>
-          <select
-            id="add-task-section"
-            className="input"
-            style={{ width: '100%' }}
-            value={addSection}
-            onChange={(e) =>
-              setAddSection(e.target.value as 'today' | 'active' | 'someday')
-            }
-          >
-            <option value="today">今日</option>
-            <option value="active">進行中</option>
-            <option value="someday">日後再說</option>
-          </select>
-        </div>
-        <div className="modal-field">
-          <label htmlFor="add-task-dept">歸屬</label>
-          <DepartmentSelect
-            id="add-task-dept"
-            departments={data.departments}
-            value={addTaskDept}
-            onChange={setAddTaskDept}
-            className="input"
-          />
-        </div>
-        <div className="modal-field">
-          <label htmlFor="add-task-assignee">負責人（可留空）</label>
-          <input
-            id="add-task-assignee"
-            className="input"
-            style={{ width: '100%' }}
-            list={addAssigneeListId}
-            value={addAssignee}
-            onChange={(e) => setAddAssignee(e.target.value)}
-            placeholder="依部門篩選名冊建議"
-          />
-        </div>
-        <div className="modal-field">
-          <label htmlFor="add-task-due">截止日（可留空）</label>
-          <input
-            id="add-task-due"
-            type="date"
-            className="input"
-            style={{ width: '100%' }}
-            value={addDue}
-            onChange={(e) => setAddDue(e.target.value)}
-          />
-        </div>
+        <form id="wm-form-header-add-task" onSubmit={submitAdd}>
+          <div className="modal-field">
+            <label htmlFor="add-task-title">任務內容</label>
+            <input
+              id="add-task-title"
+              className="input"
+              style={{ width: '100%' }}
+              value={addTitle}
+              onChange={(e) => setAddTitle(e.target.value)}
+              placeholder="要做的事…"
+            />
+          </div>
+          <div className="modal-field">
+            <label htmlFor="add-task-section">區塊</label>
+            <select
+              id="add-task-section"
+              className="input"
+              style={{ width: '100%' }}
+              value={addSection}
+              onChange={(e) =>
+                setAddSection(e.target.value as 'today' | 'active' | 'someday')
+              }
+            >
+              <option value="today">今日</option>
+              <option value="active">進行中</option>
+              <option value="someday">日後再說</option>
+            </select>
+          </div>
+          <div className="modal-field">
+            <label htmlFor="add-task-dept">歸屬</label>
+            <DepartmentSelect
+              id="add-task-dept"
+              departments={data.departments}
+              value={addTaskDept}
+              onChange={setAddTaskDept}
+              className="input"
+            />
+          </div>
+          <div className="modal-field">
+            <label htmlFor="add-task-assignee">負責人（可留空）</label>
+            <input
+              id="add-task-assignee"
+              className="input"
+              style={{ width: '100%' }}
+              list={addAssigneeListId}
+              value={addAssignee}
+              onChange={(e) => setAddAssignee(e.target.value)}
+              placeholder="依部門篩選名冊建議"
+            />
+          </div>
+          <div className="modal-field">
+            <label htmlFor="add-task-due">截止日（可留空）</label>
+            <input
+              id="add-task-due"
+              type="date"
+              className="input"
+              style={{ width: '100%' }}
+              value={addDue}
+              onChange={(e) => setAddDue(e.target.value)}
+            />
+          </div>
+        </form>
       </Modal>
     </>
   )

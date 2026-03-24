@@ -2,7 +2,7 @@ import { useDashboard } from '../context/DashboardContext'
 import { TaskRows } from '../components/TaskRows'
 import { DepartmentSelect } from '../components/DepartmentSelect'
 import { Modal } from '../components/Modal'
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 
 /**
  * 部門與 KPI、團隊名冊；依「我的任務／各部門」分欄檢視未完成任務。
@@ -333,55 +333,66 @@ export function MyAndDepartmentsPage() {
               取消
             </button>
             <button
-              type="button"
+              type="submit"
+              form="wm-form-roster-add"
               className="btn btn-primary"
-              onClick={() => {
-                addTeamRosterMember(
-                  rosterName,
-                  rosterRole || undefined,
-                  rosterDeptId,
-                )
-                setRosterModalOpen(false)
-              }}
             >
               新增
             </button>
           </div>
         }
       >
-        <div className="modal-field">
-          <label>姓名</label>
-          <input
-            className="input"
-            style={{ width: '100%' }}
-            value={rosterName}
-            onChange={(e) => setRosterName(e.target.value)}
-            placeholder="例：王小明"
-          />
-        </div>
-        <div className="modal-field">
-          <label>所屬部門</label>
-          <DepartmentSelect
-            departments={data.departments}
-            value={rosterDeptId}
-            onChange={setRosterDeptId}
-            className="input"
-            style={{ width: '100%' }}
-          />
-          <p className="modal-note" style={{ marginTop: 6 }}>
-            選「我的任務」代表未指定部門。
-          </p>
-        </div>
-        <div className="modal-field">
-          <label>職稱或備註（可留空）</label>
-          <input
-            className="input"
-            style={{ width: '100%' }}
-            value={rosterRole}
-            onChange={(e) => setRosterRole(e.target.value)}
-            placeholder="例：行銷專員"
-          />
-        </div>
+        <form
+          id="wm-form-roster-add"
+          onSubmit={(e: FormEvent<HTMLFormElement>) => {
+            e.preventDefault()
+            const n = rosterName.trim()
+            if (!n) return
+            addTeamRosterMember(
+              n,
+              rosterRole.trim() || undefined,
+              rosterDeptId,
+            )
+            setRosterModalOpen(false)
+          }}
+        >
+          <div className="modal-field">
+            <label htmlFor="wm-roster-name">姓名</label>
+            <input
+              id="wm-roster-name"
+              className="input"
+              style={{ width: '100%' }}
+              value={rosterName}
+              onChange={(e) => setRosterName(e.target.value)}
+              placeholder="例：王小明"
+            />
+          </div>
+          <div className="modal-field">
+            <label htmlFor="wm-roster-dept">所屬部門</label>
+            <DepartmentSelect
+              id="wm-roster-dept"
+              departments={data.departments}
+              value={rosterDeptId}
+              onChange={setRosterDeptId}
+              className="input"
+              style={{ width: '100%' }}
+            />
+            <p className="modal-note" style={{ marginTop: 6 }}>
+              選「我的任務」代表未指定部門。
+            </p>
+          </div>
+          <div className="modal-field">
+            <label htmlFor="wm-roster-role">職稱或備註（可留空）</label>
+            <input
+              id="wm-roster-role"
+              className="input"
+              style={{ width: '100%' }}
+              value={rosterRole}
+              onChange={(e) => setRosterRole(e.target.value)}
+              placeholder="例：行銷專員"
+            />
+          </div>
+        </form>
       </Modal>
 
       <Modal
@@ -394,65 +405,74 @@ export function MyAndDepartmentsPage() {
               取消
             </button>
             <button
-              type="button"
+              type="submit"
+              form="wm-form-kpi-add"
               className="btn btn-primary"
-              onClick={() => {
-                if (kpiDeptId) {
-                  addDepartmentKpi(kpiDeptId, {
-                    name: kpiName,
-                    target: kpiTarget,
-                    current: kpiCurrent,
-                    note: kpiNote || undefined,
-                  })
-                  toast('KPI 已新增')
-                  setKpiDeptId(null)
-                }
-              }}
             >
               新增
             </button>
           </div>
         }
       >
-        <div className="modal-field">
-          <label>KPI 名稱</label>
-          <input
-            className="input"
-            style={{ width: '100%' }}
-            value={kpiName}
-            onChange={(e) => setKpiName(e.target.value)}
-            placeholder="例：本季線索數"
-          />
-        </div>
-        <div className="modal-field">
-          <label>目標</label>
-          <input
-            className="input"
-            style={{ width: '100%' }}
-            value={kpiTarget}
-            onChange={(e) => setKpiTarget(e.target.value)}
-            placeholder="例：500 條"
-          />
-        </div>
-        <div className="modal-field">
-          <label>目前進度／數值</label>
-          <input
-            className="input"
-            style={{ width: '100%' }}
-            value={kpiCurrent}
-            onChange={(e) => setKpiCurrent(e.target.value)}
-            placeholder="例：320"
-          />
-        </div>
-        <div className="modal-field">
-          <label>備註（可留空）</label>
-          <textarea
-            className="review-input"
-            style={{ minHeight: 60 }}
-            value={kpiNote}
-            onChange={(e) => setKpiNote(e.target.value)}
-          />
-        </div>
+        <form
+          id="wm-form-kpi-add"
+          onSubmit={(e: FormEvent<HTMLFormElement>) => {
+            e.preventDefault()
+            if (!kpiDeptId) return
+            addDepartmentKpi(kpiDeptId, {
+              name: kpiName,
+              target: kpiTarget,
+              current: kpiCurrent,
+              note: kpiNote || undefined,
+            })
+            toast('KPI 已新增')
+            setKpiDeptId(null)
+          }}
+        >
+          <div className="modal-field">
+            <label htmlFor="wm-kpi-name">KPI 名稱</label>
+            <input
+              id="wm-kpi-name"
+              className="input"
+              style={{ width: '100%' }}
+              value={kpiName}
+              onChange={(e) => setKpiName(e.target.value)}
+              placeholder="例：本季線索數"
+            />
+          </div>
+          <div className="modal-field">
+            <label htmlFor="wm-kpi-target">目標</label>
+            <input
+              id="wm-kpi-target"
+              className="input"
+              style={{ width: '100%' }}
+              value={kpiTarget}
+              onChange={(e) => setKpiTarget(e.target.value)}
+              placeholder="例：500 條"
+            />
+          </div>
+          <div className="modal-field">
+            <label htmlFor="wm-kpi-current">目前進度／數值</label>
+            <input
+              id="wm-kpi-current"
+              className="input"
+              style={{ width: '100%' }}
+              value={kpiCurrent}
+              onChange={(e) => setKpiCurrent(e.target.value)}
+              placeholder="例：320"
+            />
+          </div>
+          <div className="modal-field">
+            <label htmlFor="wm-kpi-note">備註（可留空）</label>
+            <textarea
+              id="wm-kpi-note"
+              className="review-input"
+              style={{ minHeight: 60 }}
+              value={kpiNote}
+              onChange={(e) => setKpiNote(e.target.value)}
+            />
+          </div>
+        </form>
       </Modal>
 
       <Modal
@@ -476,33 +496,29 @@ export function MyAndDepartmentsPage() {
         <p className="modal-sub">
           新增部門後，新增任務時可選「🏢 部門名」；選「👤 我的任務」則只屬於你自己。
         </p>
-        <div className="modal-field" style={{ display: 'flex', gap: 8 }}>
+        <form
+          id="wm-form-dept-settings-new"
+          className="modal-field"
+          style={{ display: 'flex', gap: 8 }}
+          onSubmit={(e: FormEvent<HTMLFormElement>) => {
+            e.preventDefault()
+            if (!newDeptName.trim()) return
+            addDepartment(newDeptName)
+            setNewDeptName('')
+            toast('部門已新增')
+          }}
+        >
           <input
             className="input"
             style={{ flex: 1 }}
             placeholder="新部門名稱…"
             value={newDeptName}
             onChange={(e) => setNewDeptName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                addDepartment(newDeptName)
-                setNewDeptName('')
-                toast('部門已新增')
-              }
-            }}
           />
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => {
-              addDepartment(newDeptName)
-              setNewDeptName('')
-              toast('部門已新增')
-            }}
-          >
+          <button type="submit" className="btn btn-primary">
             新增
           </button>
-        </div>
+        </form>
         <ul style={{ listStyle: 'none', marginTop: 16 }}>
           {data.departments.map((d) => (
             <li

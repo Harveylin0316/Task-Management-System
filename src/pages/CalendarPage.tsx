@@ -1,6 +1,6 @@
 import { useDashboard } from '../context/DashboardContext'
 import { Modal } from '../components/Modal'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
 export function CalendarPage() {
   const {
@@ -54,7 +54,8 @@ export function CalendarPage() {
     )
   }, [data.deadlines])
 
-  const submitDeadline = () => {
+  const submitDeadline = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
     addDeadline(dTitle, dDate, dOwner)
     setDTitle('')
     setDDate('')
@@ -163,46 +164,48 @@ export function CalendarPage() {
               取消
             </button>
             <button
-              type="button"
+              type="submit"
+              form="wm-form-calendar-deadline"
               className="btn btn-primary"
-              onClick={submitDeadline}
             >
               新增
             </button>
           </div>
         }
       >
-        <div className="modal-field">
-          <label htmlFor="dl-title">事項</label>
-          <input
-            id="dl-title"
-            className="input"
-            style={{ width: '100%' }}
-            value={dTitle}
-            onChange={(e) => setDTitle(e.target.value)}
-          />
-        </div>
-        <div className="modal-field">
-          <label htmlFor="dl-date">日期</label>
-          <input
-            id="dl-date"
-            className="input"
-            style={{ width: '100%' }}
-            value={dDate}
-            onChange={(e) => setDDate(e.target.value)}
-            placeholder="例：2026-04-15"
-          />
-        </div>
-        <div className="modal-field">
-          <label htmlFor="dl-owner">負責人（可留空）</label>
-          <input
-            id="dl-owner"
-            className="input"
-            style={{ width: '100%' }}
-            value={dOwner}
-            onChange={(e) => setDOwner(e.target.value)}
-          />
-        </div>
+        <form id="wm-form-calendar-deadline" onSubmit={submitDeadline}>
+          <div className="modal-field">
+            <label htmlFor="dl-title">事項</label>
+            <input
+              id="dl-title"
+              className="input"
+              style={{ width: '100%' }}
+              value={dTitle}
+              onChange={(e) => setDTitle(e.target.value)}
+            />
+          </div>
+          <div className="modal-field">
+            <label htmlFor="dl-date">日期</label>
+            <input
+              id="dl-date"
+              className="input"
+              style={{ width: '100%' }}
+              value={dDate}
+              onChange={(e) => setDDate(e.target.value)}
+              placeholder="例：2026-04-15"
+            />
+          </div>
+          <div className="modal-field">
+            <label htmlFor="dl-owner">負責人（可留空）</label>
+            <input
+              id="dl-owner"
+              className="input"
+              style={{ width: '100%' }}
+              value={dOwner}
+              onChange={(e) => setDOwner(e.target.value)}
+            />
+          </div>
+        </form>
       </Modal>
     </>
   )
