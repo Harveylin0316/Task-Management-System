@@ -1569,6 +1569,15 @@ textarea.review-input::placeholder {
   margin-top: 4px;
 }
 
+.app-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
 @media (max-width: 900px) {
   .stats-bar {
     grid-template-columns: 1fr 1fr;

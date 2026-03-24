@@ -1,13 +1,28 @@
-/**
- * 之後接上 Supabase 時：
- * 1. npm i @supabase/supabase-js
- * 2. .env：VITE_SUPABASE_URL、VITE_SUPABASE_ANON_KEY
- * 3. 在此建立 createClient，並新增 SupabaseDataSource 實作 src/lib/dataSource.ts 的介面
- * 4. 在 DashboardProvider 依登入狀態切換 DataSource
- */
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+
+let singleton: SupabaseClient | null = null
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(
-    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY,
+    import.meta.env.VITE_SUPABASE_URL?.trim() &&
+      import.meta.env.VITE_SUPABASE_ANON_KEY?.trim(),
   )
+}
+
+export function getSupabaseClient(): SupabaseClient {
+  if (!isSupabaseConfigured()) {
+    throw new Error('缺少 VITE_SUPABASE_URL 或 VITE_SUPABASE_ANON_KEY')
+  }
+  const url = import.meta.env.VITE_SUPABASE_URL!.trim()
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY!.trim()
+  if (!singleton) {
+    singleton = createClient(url, key, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    })
+  }
+  return singleton
 }

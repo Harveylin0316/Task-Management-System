@@ -8,10 +8,15 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { createLocalStorageDataSource } from '../lib/dataSource'
+import {
+  createAsyncLocalStorageDataSource,
+  type AsyncDataSource,
+} from '../lib/dataSource'
 import { defaultData } from '../lib/defaultData'
 import { newId } from '../lib/id'
 import { migrateAppData } from '../lib/migrate'
+import { createSupabaseAsyncDataSource } from '../lib/supabaseAsyncDataSource'
+import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabaseClient'
 import type {
   AppData,
   BigProjectStatus,
@@ -20,7 +25,12 @@ import type {
   TaskSection,
 } from '../lib/types'
 
-const ds = createLocalStorageDataSource()
+function getOrCreateAsyncSource(): AsyncDataSource {
+  if (isSupabaseConfigured()) {
+    return createSupabaseAsyncDataSource(getSupabaseClient())
+  }
+  return createAsyncLocalStorageDataSource()
+}
 
 export type DashboardContextValue = {
   data: AppData
@@ -143,17 +153,34 @@ export type DashboardContextValue = {
 const DashboardContext = createContext<DashboardContextValue | null>(null)
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<AppData>(() => {
-    try {
-      return migrateAppData(ds.load())
-    } catch (e) {
-      console.error('載入資料失敗，已使用空白資料', e)
-      return defaultData()
-    }
-  })
+  const sourceRef = useRef<AsyncDataSource | null>(null)
+  if (!sourceRef.current) sourceRef.current = getOrCreateAsyncSource()
+
+  const [data, setData] = useState<AppData>(() => defaultData())
+  const [hydrated, setHydrated] = useState(false)
   const [selectedBigProjectIdx, setSelectedBigProjectIdx] = useState(0)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const toastT = useRef(0)
+
+  useEffect(() => {
+    let cancelled = false
+    const src = sourceRef.current!
+    ;(async () => {
+      try {
+        const loaded = await src.load()
+        if (cancelled) return
+        setData(migrateAppData(loaded))
+      } catch (e) {
+        console.error('載入資料失敗，已使用空白資料', e)
+        if (!cancelled) setData(defaultData())
+      } finally {
+        if (!cancelled) setHydrated(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const selectedBigProjectIdxSafe = useMemo(() => {
     const n = data.bigProjects.length
@@ -168,9 +195,15 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    const t = window.setTimeout(() => ds.save(data), 450)
+    if (!hydrated) return
+    const src = sourceRef.current!
+    const t = window.setTimeout(() => {
+      void src.save(data).catch((err) => {
+        console.error('儲存失敗', err)
+      })
+    }, 450)
     return () => window.clearTimeout(t)
-  }, [data])
+  }, [data, hydrated])
 
   const exportJson = useCallback(() => {
     const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -1014,8 +1047,14 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   return (
     <DashboardContext.Provider value={value}>
-      {children}
-      {toastMessage ? (
+      {!hydrated ? (
+        <div className="app-loading" role="status">
+          載入中…
+        </div>
+      ) : (
+        children
+      )}
+      {hydrated && toastMessage ? (
         <div className="toast" role="status">
           {toastMessage}
         </div>

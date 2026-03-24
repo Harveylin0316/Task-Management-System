@@ -66,7 +66,7 @@ export function Header() {
               className={`sync-dot ${cloudReady ? 'cloud' : 'local'}`}
               aria-hidden
             />
-            {cloudReady ? '雲端已設定' : '本機暫存（將接 Supabase）'}
+            {cloudReady ? '雲端同步' : '本機暫存'}
           </button>
           <button type="button" className="btn" onClick={exportMarkdown}>
             匯出週報
@@ -108,15 +108,14 @@ export function Header() {
         }
       >
         <p className="modal-sub">
-          目標是讓你在手機與電腦都能看到同一份資料，因此<strong>不會只存在單一裝置本機</strong>
-          。下一階段會接上 <strong>Supabase</strong>
-          （登入後寫入雲端）。目前開發階段仍使用瀏覽器暫存，請先用匯出／匯入 JSON
-          做備份與搬移。
+          若在 <code>.env</code> 設定 <code>VITE_SUPABASE_URL</code> 與{' '}
+          <code>VITE_SUPABASE_ANON_KEY</code>，並在 Supabase 執行專案內{' '}
+          <code>supabase/migrations</code> 的 SQL、啟用<strong>匿名登入</strong>
+          ，資料會自動同步到雲端（仍以 JSON 匯出／匯入做備份）。
         </p>
         <p className="modal-note">
-          之後請在專案根目錄建立 <code>.env</code>，填入{' '}
-          <code>VITE_SUPABASE_URL</code>、<code>VITE_SUPABASE_ANON_KEY</code>
-          ，並實作 <code>src/lib/supabaseClient.ts</code> 與對應的 DataSource。
+          未設定環境變數時，資料僅存在此瀏覽器本機；Netlify 等託管請在後台加上相同的{' '}
+          <code>VITE_*</code> 變數後重新部署。
         </p>
         <input
           ref={fileRef}
