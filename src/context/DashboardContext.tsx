@@ -12,6 +12,19 @@ import {
   createAsyncLocalStorageDataSource,
   type AsyncDataSource,
 } from '../lib/dataSource'
+
+function isAnonymousSignInsDisabledError(e: unknown): boolean {
+  const m =
+    e instanceof Error
+      ? e.message
+      : typeof e === 'object' &&
+          e !== null &&
+          'message' in e &&
+          typeof (e as { message: unknown }).message === 'string'
+        ? (e as { message: string }).message
+        : String(e)
+  return /anonymous sign-ins are disabled/i.test(m)
+}
 import { defaultData } from '../lib/defaultData'
 import { newId } from '../lib/id'
 import { migrateAppData } from '../lib/migrate'
@@ -162,17 +175,39 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const toastT = useRef(0)
 
+  const toast = useCallback((msg: string) => {
+    setToastMessage(msg)
+    window.clearTimeout(toastT.current)
+    toastT.current = window.setTimeout(() => setToastMessage(null), 4500)
+  }, [])
+
   useEffect(() => {
     let cancelled = false
-    const src = sourceRef.current!
     ;(async () => {
       try {
-        const loaded = await src.load()
+        const loaded = await sourceRef.current!.load()
         if (cancelled) return
         setData(migrateAppData(loaded))
       } catch (e) {
-        console.error('載入資料失敗，已使用空白資料', e)
-        if (!cancelled) setData(defaultData())
+        if (isAnonymousSignInsDisabledError(e)) {
+          console.warn('Supabase 未啟用匿名登入，改為本機儲存', e)
+          sourceRef.current = createAsyncLocalStorageDataSource()
+          try {
+            const loaded = await sourceRef.current.load()
+            if (!cancelled) setData(migrateAppData(loaded))
+          } catch (inner) {
+            console.error('本機載入失敗', inner)
+            if (!cancelled) setData(defaultData())
+          }
+          if (!cancelled) {
+            toast(
+              '雲端需啟用「匿名登入」：Supabase → Authentication → Providers → Anonymous 開啟。目前先使用本機儲存。',
+            )
+          }
+        } else {
+          console.error('載入資料失敗，已使用空白資料', e)
+          if (!cancelled) setData(defaultData())
+        }
       } finally {
         if (!cancelled) setHydrated(true)
       }
@@ -180,19 +215,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [toast])
 
   const selectedBigProjectIdxSafe = useMemo(() => {
     const n = data.bigProjects.length
     if (n === 0) return 0
     return Math.min(Math.max(0, selectedBigProjectIdx), n - 1)
   }, [data.bigProjects, selectedBigProjectIdx])
-
-  const toast = useCallback((msg: string) => {
-    setToastMessage(msg)
-    window.clearTimeout(toastT.current)
-    toastT.current = window.setTimeout(() => setToastMessage(null), 2500)
-  }, [])
 
   useEffect(() => {
     if (!hydrated) return

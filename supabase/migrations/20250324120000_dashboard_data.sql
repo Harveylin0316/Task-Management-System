@@ -1,6 +1,6 @@
 -- 工作管理儀表板：每位使用者一筆 JSON 資料
 -- 使用方式：Supabase Dashboard → SQL Editor → 貼上執行
--- 並至 Authentication → Providers → 啟用「Anonymous」登入
+-- 必做：Authentication → Providers → 啟用「Anonymous」（未開會 422 / Anonymous sign-ins are disabled）
 
 create table if not exists public.dashboard_data (
   user_id uuid primary key references auth.users (id) on delete cascade,
