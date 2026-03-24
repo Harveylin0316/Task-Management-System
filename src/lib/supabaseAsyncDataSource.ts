@@ -59,6 +59,28 @@ function explainAnonymousAuthFailure(error: {
   )
 }
 
+/**
+ * 雲端若為 {}、缺 teamRoster、或 teamRoster 為 null，migrate 後名冊會變空。
+ * 僅在雲端「未明確寫入 teamRoster: []」時，用 localStorage 備份補回名冊，避免登入／重新載入後被洗白。
+ */
+function mergeTeamRosterFromLocalIfNeeded(
+  rawPayload: Record<string, unknown>,
+  app: AppData,
+): AppData {
+  const explicitEmptyRoster =
+    'teamRoster' in rawPayload &&
+    Array.isArray(rawPayload.teamRoster) &&
+    rawPayload.teamRoster.length === 0
+  if (explicitEmptyRoster) return app
+  if (app.teamRoster.length > 0) return app
+  const local = readPersistedLocalAppData()
+  if (!local?.teamRoster?.length) return app
+  return {
+    ...app,
+    teamRoster: migrateAppData(local).teamRoster,
+  }
+}
+
 async function loadFromCloud(
   client: SupabaseClient,
   userId: string,
@@ -70,7 +92,30 @@ async function loadFromCloud(
     .maybeSingle()
   if (error) throw error
   const payload = data?.payload ?? null
-  if (payload != null) return migrateAppData(payload)
+  if (
+    payload != null &&
+    typeof payload === 'object' &&
+    !Array.isArray(payload)
+  ) {
+    const raw = payload as Record<string, unknown>
+    const app = migrateAppData(payload)
+    const merged = mergeTeamRosterFromLocalIfNeeded(raw, app)
+    if (merged.teamRoster.length > app.teamRoster.length) {
+      const { error: upErr } = await client.from('dashboard_data').upsert(
+        {
+          user_id: userId,
+          payload: merged,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' },
+      )
+      if (upErr) throw upErr
+    }
+    return merged
+  }
+  if (payload != null) {
+    return migrateAppData(payload)
+  }
 
   const local = readPersistedLocalAppData()
   if (local) {
