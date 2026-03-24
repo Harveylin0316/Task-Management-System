@@ -404,12 +404,14 @@ export function DepartmentWorkspacePage() {
 
   const setDefaultTabDeptWs = () => {
     updateUiPrefs({ defaultTab: 'deptws' })
-    toast('已同步至雲端：下次開啟將預設「部門工作台」。')
+    toast(
+      '已同步至雲端：可將網址 …/#/deptws 存為書籤；從首頁 #/ 進入時也會開啟「部門工作台」。',
+    )
   }
 
   const clearDefaultTab = () => {
     updateUiPrefs({ defaultTab: undefined })
-    toast('已還原並同步至雲端，下次開啟預設為「今日」。')
+    toast('已還原並同步至雲端；從首頁 #/ 進入時會開啟「今日」。')
   }
 
   if (!data.departments.length) {

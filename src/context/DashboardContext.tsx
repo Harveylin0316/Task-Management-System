@@ -208,6 +208,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   /** 僅在資料來源成功載入（或從本機備份復原）後才自動存檔，避免載入失敗時用空白狀態覆寫雲端 */
   const mayPersistRef = useRef(false)
+  /** 首次已成功套用遠端／備援資料後才為 true；避免 SIGNED_IN 早於此時觸發 save 用預設空白覆寫雲端 */
+  const initialDataLoadedRef = useRef(false)
+  const [authSubscriptionReady, setAuthSubscriptionReady] = useState(false)
 
   const [data, setData] = useState<AppData>(() => defaultData())
   const [hydrated, setHydrated] = useState(false)
@@ -246,7 +249,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const reloadFromRemote = useCallback(async () => {
     try {
       const src = sourceRef.current!
-      if (hydratedRef.current && mayPersistRef.current) {
+      if (
+        hydratedRef.current &&
+        mayPersistRef.current &&
+        initialDataLoadedRef.current
+      ) {
         try {
           const repaired = await src.save(dataRef.current)
           if (repaired != null) setData(migrateAppData(repaired))
@@ -277,6 +284,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         const loaded = await sourceRef.current!.load()
         if (cancelled) return
         setData(migrateAppData(loaded))
+        initialDataLoadedRef.current = true
         const src = sourceRef.current!
         mayPersistRef.current = isSupabaseAsyncDataSource(src)
           ? src.allowAutoSaveAfterLoad()
@@ -292,6 +300,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           const recovered = readPersistedLocalAppData()
           if (recovered) {
             setData(recovered)
+            initialDataLoadedRef.current = true
             mayPersistRef.current = true
             toast(
               '雲端載入失敗，已改顯示瀏覽器本機備份。請確認網路後重新整理，並盡快使用「匯出 JSON」備份。',
@@ -305,7 +314,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           }
         }
       } finally {
-        if (!cancelled) setHydrated(true)
+        if (!cancelled) {
+          setHydrated(true)
+          setAuthSubscriptionReady(true)
+        }
       }
     })()
     return () => {
@@ -314,7 +326,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) return
+    if (!isSupabaseConfigured() || !authSubscriptionReady) return
     const client = getSupabaseClient()
     const { data } = client.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') {
@@ -322,7 +334,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       }
     })
     return () => data.subscription.unsubscribe()
-  }, [reloadFromRemote])
+  }, [authSubscriptionReady, reloadFromRemote])
 
   const selectedBigProjectIdxSafe = useMemo(() => {
     const n = data.bigProjects.length
@@ -331,7 +343,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, [data.bigProjects, selectedBigProjectIdx])
 
   useEffect(() => {
-    if (!hydrated || !mayPersistRef.current) return
+    if (!hydrated || !mayPersistRef.current || !initialDataLoadedRef.current)
+      return
     const src = sourceRef.current!
     const t = window.setTimeout(() => {
       const snap = dataRef.current
@@ -357,7 +370,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   /** 關閉分頁／重新整理前立刻存檔；避免 debounce 被 cleanup 取消導致名冊等變更未上傳 */
   useEffect(() => {
     const flush = () => {
-      if (!hydratedRef.current || !mayPersistRef.current) return
+      if (
+        !hydratedRef.current ||
+        !mayPersistRef.current ||
+        !initialDataLoadedRef.current
+      )
+        return
       const src = sourceRef.current!
       const snap = dataRef.current
       void src
@@ -403,6 +421,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           if (m.teamRoster.length === 0) ui.teamRosterClearedByUser = true
           else delete ui.teamRosterClearedByUser
           setData({ ...m, ui })
+          initialDataLoadedRef.current = true
           mayPersistRef.current = true
           setSelectedBigProjectIdx(0)
           toast('資料已匯入')

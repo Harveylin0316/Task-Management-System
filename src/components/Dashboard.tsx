@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useDashboard } from '../context/DashboardContext'
 import type { DashboardTabId } from '../lib/types'
+import { DASHBOARD_TABS, isDashboardTabId } from '../lib/dashboardRoutes'
 import { Header } from './Header'
 import { TodayPage } from '../pages/TodayPage'
 import { TasksPage } from '../pages/TasksPage'
@@ -13,17 +14,6 @@ import { DepartmentWorkspacePage } from '../pages/DepartmentWorkspacePage'
 
 /** @deprecated 請改用 {@link DashboardTabId} */
 export type TabId = DashboardTabId
-
-const TABS: { id: DashboardTabId; label: string }[] = [
-  { id: 'today', label: '📅 今日' },
-  { id: 'deptws', label: '🏢 部門工作台' },
-  { id: 'mydept', label: '🏬 部門與KPI管理' },
-  { id: 'track', label: '📉 追蹤總覽' },
-  { id: 'tasks', label: '📋 任務看板' },
-  { id: 'calendar', label: '🗓 行程 & 截止日' },
-  { id: 'weekly', label: '📊 週報回顧' },
-  { id: 'projects', label: '🗂 專案管理' },
-]
 
 function TeamRosterDatalists() {
   const { data } = useDashboard()
@@ -50,28 +40,26 @@ function TeamRosterDatalists() {
 }
 
 export function Dashboard() {
-  const { data, hydrated } = useDashboard()
-  const [tab, setTab] = useState<DashboardTabId>('today')
-  const landingAppliedRef = useRef(false)
+  const { tabId } = useParams<{ tabId: string }>()
+  const navigate = useNavigate()
 
-  useEffect(() => {
-    if (!hydrated || landingAppliedRef.current) return
-    const t = data.ui?.defaultTab
-    if (t && TABS.some((x) => x.id === t)) setTab(t)
-    landingAppliedRef.current = true
-  }, [hydrated, data.ui?.defaultTab])
+  if (!tabId || !isDashboardTabId(tabId)) {
+    return <Navigate to="/today" replace />
+  }
+
+  const tab = tabId
 
   return (
     <>
       <TeamRosterDatalists />
       <Header />
       <nav className="tabs" aria-label="主要分頁">
-        {TABS.map((t) => (
+        {DASHBOARD_TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             className={`tab ${tab === t.id ? 'active' : ''}`}
-            onClick={() => setTab(t.id)}
+            onClick={() => navigate(`/${t.id}`)}
             aria-current={tab === t.id ? 'page' : undefined}
           >
             {t.label}
