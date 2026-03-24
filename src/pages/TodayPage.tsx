@@ -79,6 +79,7 @@ export function TodayPage() {
               <input
                 className="input task-assignee-input"
                 placeholder="負責人"
+                list="wm-team-roster-datalist"
                 value={todayAssignee}
                 onChange={(e) => setTodayAssignee(e.target.value)}
               />

@@ -4,6 +4,7 @@ import type { AppData } from './types'
 export function defaultData(): AppData {
   return {
     departments: createDefaultDepartments(),
+    teamRoster: [],
     today: [],
     active: [],
     someday: [],

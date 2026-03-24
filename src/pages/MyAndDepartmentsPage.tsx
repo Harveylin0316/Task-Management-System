@@ -15,9 +15,18 @@ export function MyAndDepartmentsPage() {
     removeDepartmentKpi,
     renameDepartment,
     removeDepartment,
+    addTeamRosterMember,
+    updateTeamRosterMember,
+    removeTeamRosterMember,
     toast,
   } = useDashboard()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [rosterModalOpen, setRosterModalOpen] = useState(false)
+  const [rosterName, setRosterName] = useState('')
+  const [rosterRole, setRosterRole] = useState('')
+  const [rosterEditingId, setRosterEditingId] = useState<string | null>(null)
+  const [rosterEditName, setRosterEditName] = useState('')
+  const [rosterEditRole, setRosterEditRole] = useState('')
   const [newDeptName, setNewDeptName] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -57,13 +66,122 @@ export function MyAndDepartmentsPage() {
           預設部門為<strong>行銷</strong>與<strong>BD業務</strong>。各部門可維護
           <strong>KPI</strong>（目標／現況），並在「追蹤總覽」由上而下對齊專案與任務負責人。
         </p>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => setSettingsOpen(true)}
-        >
-          ⚙️ 管理部門
-        </button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setSettingsOpen(true)}
+          >
+            ⚙️ 管理部門
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              setRosterModalOpen(true)
+              setRosterName('')
+              setRosterRole('')
+            }}
+          >
+            ＋ 團隊成員名冊
+          </button>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="card-header">
+          <div className="card-title">👥 團隊成員名冊</div>
+        </div>
+        <div className="card-body">
+          <p className="text-muted" style={{ fontSize: 12, marginBottom: 12 }}>
+            在此維護成員清單；任務「負責人」欄可輸入相同姓名，瀏覽器會顯示建議選項。
+          </p>
+          {!data.teamRoster.length ? (
+            <div className="empty" style={{ padding: '16px 8px' }}>
+              <div className="empty-icon">👤</div>
+              尚無成員。點「＋ 團隊成員名冊」新增。
+            </div>
+          ) : (
+            <ul className="team-roster-list">
+              {data.teamRoster.map((m) => (
+                <li key={m.id} className="team-roster-item">
+                  {rosterEditingId === m.id ? (
+                    <>
+                      <input
+                        className="input"
+                        style={{ flex: 1, minWidth: 100 }}
+                        value={rosterEditName}
+                        onChange={(e) => setRosterEditName(e.target.value)}
+                        placeholder="姓名"
+                      />
+                      <input
+                        className="input"
+                        style={{ flex: 1, minWidth: 80 }}
+                        value={rosterEditRole}
+                        onChange={(e) => setRosterEditRole(e.target.value)}
+                        placeholder="職稱／備註"
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ fontSize: 12 }}
+                        onClick={() => {
+                          updateTeamRosterMember(m.id, {
+                            name: rosterEditName,
+                            role: rosterEditRole,
+                          })
+                          setRosterEditingId(null)
+                          toast('已更新')
+                        }}
+                      >
+                        儲存
+                      </button>
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ fontSize: 12 }}
+                        onClick={() => setRosterEditingId(null)}
+                      >
+                        取消
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="team-roster-name">{m.name}</span>
+                      {m.role ? (
+                        <span className="team-roster-role">{m.role}</span>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ fontSize: 12 }}
+                        onClick={() => {
+                          setRosterEditingId(m.id)
+                          setRosterEditName(m.name)
+                          setRosterEditRole(m.role ?? '')
+                        }}
+                      >
+                        編輯
+                      </button>
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ fontSize: 12 }}
+                        onClick={() => {
+                          if (window.confirm(`從名冊移除「${m.name}」？`)) {
+                            removeTeamRosterMember(m.id)
+                          }
+                        }}
+                      >
+                        移除
+                      </button>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       {!data.departments.length ? (
@@ -182,6 +300,54 @@ export function MyAndDepartmentsPage() {
           );
         })}
       </div>
+
+      <Modal
+        open={rosterModalOpen}
+        title="新增團隊成員"
+        onClose={() => setRosterModalOpen(false)}
+        footer={
+          <div className="modal-btns">
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setRosterModalOpen(false)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                addTeamRosterMember(rosterName, rosterRole || undefined)
+                setRosterModalOpen(false)
+              }}
+            >
+              新增
+            </button>
+          </div>
+        }
+      >
+        <div className="modal-field">
+          <label>姓名</label>
+          <input
+            className="input"
+            style={{ width: '100%' }}
+            value={rosterName}
+            onChange={(e) => setRosterName(e.target.value)}
+            placeholder="例：王小明"
+          />
+        </div>
+        <div className="modal-field">
+          <label>職稱或備註（可留空）</label>
+          <input
+            className="input"
+            style={{ width: '100%' }}
+            value={rosterRole}
+            onChange={(e) => setRosterRole(e.target.value)}
+            placeholder="例：行銷專員"
+          />
+        </div>
+      </Modal>
 
       <Modal
         open={kpiDeptId !== null}

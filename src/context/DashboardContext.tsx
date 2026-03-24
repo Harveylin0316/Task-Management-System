@@ -69,6 +69,12 @@ export type DashboardContextValue = {
   addDepartment: (name: string) => void
   renameDepartment: (id: string, name: string) => void
   removeDepartment: (id: string) => void
+  addTeamRosterMember: (name: string, role?: string) => void
+  updateTeamRosterMember: (
+    id: string,
+    patch: Partial<{ name: string; role: string }>,
+  ) => void
+  removeTeamRosterMember: (id: string) => void
   addDepartmentKpi: (
     departmentId: string,
     kpi: { name: string; target: string; current: string; note?: string },
@@ -379,6 +385,55 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       departments: [...prev.departments, { id: newId(), name: n, kpis: [] }],
     }))
   }, [])
+
+  const addTeamRosterMember = useCallback((name: string, role?: string) => {
+    const n = name.trim()
+    if (!n) return
+    const r = role?.trim()
+    setData((prev) => ({
+      ...prev,
+      teamRoster: [
+        ...prev.teamRoster,
+        {
+          id: newId(),
+          name: n,
+          role: r && r.length > 0 ? r : undefined,
+        },
+      ],
+    }))
+    toast('團隊成員已新增')
+  }, [toast])
+
+  const updateTeamRosterMember = useCallback(
+    (id: string, patch: Partial<{ name: string; role: string }>) => {
+      setData((prev) => ({
+        ...prev,
+        teamRoster: prev.teamRoster.map((m) => {
+          if (m.id !== id) return m
+          let name = m.name
+          let role = m.role
+          if (patch.name !== undefined) {
+            const n = patch.name.trim()
+            if (n) name = n
+          }
+          if (patch.role !== undefined) {
+            const r = patch.role.trim()
+            role = r.length > 0 ? r : undefined
+          }
+          return { ...m, name, role }
+        }),
+      }))
+    },
+    [],
+  )
+
+  const removeTeamRosterMember = useCallback((id: string) => {
+    setData((prev) => ({
+      ...prev,
+      teamRoster: prev.teamRoster.filter((m) => m.id !== id),
+    }))
+    toast('已從名冊移除')
+  }, [toast])
 
   const addDepartmentKpi = useCallback(
     (
@@ -1006,6 +1061,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       removeDepartmentKpi,
       renameDepartment,
       removeDepartment,
+      addTeamRosterMember,
+      updateTeamRosterMember,
+      removeTeamRosterMember,
       toggleTask,
       removeTask,
       clearDone,
@@ -1054,6 +1112,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       removeDepartmentKpi,
       renameDepartment,
       removeDepartment,
+      addTeamRosterMember,
+      updateTeamRosterMember,
+      removeTeamRosterMember,
       toggleTask,
       removeTask,
       clearDone,

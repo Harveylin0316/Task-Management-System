@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDashboard } from '../context/DashboardContext'
 import { Header } from './Header'
 import { TodayPage } from '../pages/TodayPage'
 import { TasksPage } from '../pages/TasksPage'
@@ -27,11 +28,23 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'projects', label: '🗂 專案管理' },
 ]
 
+function TeamRosterDatalist() {
+  const { data } = useDashboard()
+  return (
+    <datalist id="wm-team-roster-datalist">
+      {data.teamRoster.map((m) => (
+        <option key={m.id} value={m.name} />
+      ))}
+    </datalist>
+  )
+}
+
 export function Dashboard() {
   const [tab, setTab] = useState<TabId>('today')
 
   return (
     <>
+      <TeamRosterDatalist />
       <Header />
       <div className="banner-note">
         已可接 Supabase：有設定環境變數時會嘗試雲端同步；若匿名登入被 API

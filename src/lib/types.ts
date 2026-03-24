@@ -16,6 +16,14 @@ export interface Department {
   kpis: DepartmentKpi[]
 }
 
+/** 全域團隊名冊（與任務負責人、專案參與者等對齊用） */
+export interface TeamRosterMember {
+  id: string
+  name: string
+  /** 職稱或備註，可留空 */
+  role?: string
+}
+
 export interface TaskItem {
   id: string
   title: string
@@ -121,6 +129,8 @@ export interface BigProject {
 
 export interface AppData {
   departments: Department[]
+  /** 團隊成員名冊 */
+  teamRoster: TeamRosterMember[]
   today: TaskItem[]
   active: TaskItem[]
   someday: TaskItem[]

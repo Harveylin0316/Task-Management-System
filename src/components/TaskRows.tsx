@@ -61,6 +61,7 @@ export function TaskRows({
                     type="text"
                     className="input task-assignee-input"
                     placeholder="負責人"
+                    list="wm-team-roster-datalist"
                     value={item.assignee ?? ''}
                     onChange={(e) =>
                       updateTaskAssignee(section, item.id, e.target.value)

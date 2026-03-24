@@ -119,6 +119,7 @@ export function TasksPage() {
               <input
                 className="input task-assignee-input"
                 placeholder="負責人"
+                list="wm-team-roster-datalist"
                 value={assigneeActive}
                 onChange={(e) => setAssigneeActive(e.target.value)}
               />
@@ -171,6 +172,7 @@ export function TasksPage() {
               <input
                 className="input task-assignee-input"
                 placeholder="負責人"
+                list="wm-team-roster-datalist"
                 value={assigneeSomeday}
                 onChange={(e) => setAssigneeSomeday(e.target.value)}
               />

@@ -13,6 +13,7 @@ import type {
   Subtask,
   TaskItem,
   TeamMember,
+  TeamRosterMember,
   WaitingItem,
 } from './types'
 
@@ -43,6 +44,14 @@ export function migrateAppData(raw: unknown): AppData {
     kpis: Array.isArray(x.kpis)
       ? x.kpis.map((k) => mapKpi(k as unknown as Record<string, unknown>))
       : [],
+  })
+
+  const mapTeamRosterMember = (
+    x: Partial<TeamRosterMember> & Record<string, unknown>,
+  ): TeamRosterMember => ({
+    id: typeof x.id === 'string' ? x.id : nid(),
+    name: String(x.name ?? ''),
+    role: x.role != null && String(x.role).trim() !== '' ? String(x.role) : undefined,
   })
 
   const mapTask = (t: Partial<TaskItem> & Record<string, unknown>): TaskItem => ({
@@ -194,6 +203,11 @@ export function migrateAppData(raw: unknown): AppData {
 
   return {
     departments,
+    teamRoster: Array.isArray(d.teamRoster)
+      ? d.teamRoster.map((x) =>
+          mapTeamRosterMember(x as unknown as Record<string, unknown>),
+        )
+      : base.teamRoster,
     today: Array.isArray(d.today) ? d.today.map((t) => mapTask(t as Record<string, unknown>)) : base.today,
     active: Array.isArray(d.active)
       ? d.active.map((t) => mapTask(t as Record<string, unknown>))
