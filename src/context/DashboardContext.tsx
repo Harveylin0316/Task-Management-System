@@ -1091,7 +1091,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   )
 
   const acknowledgeWeeklySaved = useCallback(() => {
-    toast('週報已儲存')
+    toast('已記錄本週檢視（內容早已自動同步雲端）')
   }, [toast])
 
   const addBigProject = useCallback(
