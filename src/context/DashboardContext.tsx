@@ -69,10 +69,14 @@ export type DashboardContextValue = {
   addDepartment: (name: string) => void
   renameDepartment: (id: string, name: string) => void
   removeDepartment: (id: string) => void
-  addTeamRosterMember: (name: string, role?: string) => void
+  addTeamRosterMember: (
+    name: string,
+    role?: string,
+    departmentId?: string | null,
+  ) => void
   updateTeamRosterMember: (
     id: string,
-    patch: Partial<{ name: string; role: string }>,
+    patch: Partial<{ name: string; role: string; departmentId: string | null }>,
   ) => void
   removeTeamRosterMember: (id: string) => void
   addDepartmentKpi: (
@@ -386,32 +390,48 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }))
   }, [])
 
-  const addTeamRosterMember = useCallback((name: string, role?: string) => {
-    const n = name.trim()
-    if (!n) return
-    const r = role?.trim()
-    setData((prev) => ({
-      ...prev,
-      teamRoster: [
-        ...prev.teamRoster,
-        {
-          id: newId(),
-          name: n,
-          role: r && r.length > 0 ? r : undefined,
-        },
-      ],
-    }))
-    toast('團隊成員已新增')
-  }, [toast])
+  const addTeamRosterMember = useCallback(
+    (name: string, role?: string, departmentId?: string | null) => {
+      const n = name.trim()
+      if (!n) return
+      const r = role?.trim()
+      const dept =
+        departmentId === undefined || departmentId === '' || departmentId == null
+          ? null
+          : departmentId
+      setData((prev) => ({
+        ...prev,
+        teamRoster: [
+          ...prev.teamRoster,
+          {
+            id: newId(),
+            name: n,
+            departmentId: dept,
+            role: r && r.length > 0 ? r : undefined,
+          },
+        ],
+      }))
+      toast('團隊成員已新增')
+    },
+    [toast],
+  )
 
   const updateTeamRosterMember = useCallback(
-    (id: string, patch: Partial<{ name: string; role: string }>) => {
+    (
+      id: string,
+      patch: Partial<{
+        name: string
+        role: string
+        departmentId: string | null
+      }>,
+    ) => {
       setData((prev) => ({
         ...prev,
         teamRoster: prev.teamRoster.map((m) => {
           if (m.id !== id) return m
           let name = m.name
           let role = m.role
+          let departmentId = m.departmentId
           if (patch.name !== undefined) {
             const n = patch.name.trim()
             if (n) name = n
@@ -420,7 +440,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             const r = patch.role.trim()
             role = r.length > 0 ? r : undefined
           }
-          return { ...m, name, role }
+          if (patch.departmentId !== undefined) {
+            departmentId =
+              patch.departmentId === '' || patch.departmentId == null
+                ? null
+                : patch.departmentId
+          }
+          return { ...m, name, role, departmentId }
         }),
       }))
     },
@@ -540,6 +566,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       ),
       bigProjects: prev.bigProjects.map((p) =>
         p.departmentId === id ? { ...p, departmentId: null } : p,
+      ),
+      teamRoster: prev.teamRoster.map((m) =>
+        m.departmentId === id ? { ...m, departmentId: null } : m,
       ),
     }))
   }, [])

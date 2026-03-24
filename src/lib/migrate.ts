@@ -51,6 +51,10 @@ export function migrateAppData(raw: unknown): AppData {
   ): TeamRosterMember => ({
     id: typeof x.id === 'string' ? x.id : nid(),
     name: String(x.name ?? ''),
+    departmentId:
+      typeof x.departmentId === 'string' && x.departmentId.length > 0
+        ? x.departmentId
+        : null,
     role: x.role != null && String(x.role).trim() !== '' ? String(x.role) : undefined,
   })
 

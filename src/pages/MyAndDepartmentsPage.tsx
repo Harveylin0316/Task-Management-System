@@ -1,5 +1,6 @@
 import { useDashboard } from '../context/DashboardContext'
 import { TaskRows } from '../components/TaskRows'
+import { DepartmentSelect } from '../components/DepartmentSelect'
 import { Modal } from '../components/Modal'
 import { useState } from 'react'
 
@@ -24,9 +25,11 @@ export function MyAndDepartmentsPage() {
   const [rosterModalOpen, setRosterModalOpen] = useState(false)
   const [rosterName, setRosterName] = useState('')
   const [rosterRole, setRosterRole] = useState('')
+  const [rosterDeptId, setRosterDeptId] = useState<string | null>(null)
   const [rosterEditingId, setRosterEditingId] = useState<string | null>(null)
   const [rosterEditName, setRosterEditName] = useState('')
   const [rosterEditRole, setRosterEditRole] = useState('')
+  const [rosterEditDeptId, setRosterEditDeptId] = useState<string | null>(null)
   const [newDeptName, setNewDeptName] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -81,6 +84,7 @@ export function MyAndDepartmentsPage() {
               setRosterModalOpen(true)
               setRosterName('')
               setRosterRole('')
+              setRosterDeptId(null)
             }}
           >
             ＋ 團隊成員名冊
@@ -94,7 +98,7 @@ export function MyAndDepartmentsPage() {
         </div>
         <div className="card-body">
           <p className="text-muted" style={{ fontSize: 12, marginBottom: 12 }}>
-            在此維護成員清單；任務「負責人」欄可輸入相同姓名，瀏覽器會顯示建議選項。
+            可為每位成員設定<strong>所屬部門</strong>（可選「未指定」）。任務「負責人」欄可輸入相同姓名，瀏覽器會顯示建議選項。
           </p>
           {!data.teamRoster.length ? (
             <div className="empty" style={{ padding: '16px 8px' }}>
@@ -114,6 +118,12 @@ export function MyAndDepartmentsPage() {
                         onChange={(e) => setRosterEditName(e.target.value)}
                         placeholder="姓名"
                       />
+                      <DepartmentSelect
+                        departments={data.departments}
+                        value={rosterEditDeptId}
+                        onChange={setRosterEditDeptId}
+                        className="input team-roster-dept-select"
+                      />
                       <input
                         className="input"
                         style={{ flex: 1, minWidth: 80 }}
@@ -129,6 +139,7 @@ export function MyAndDepartmentsPage() {
                           updateTeamRosterMember(m.id, {
                             name: rosterEditName,
                             role: rosterEditRole,
+                            departmentId: rosterEditDeptId,
                           })
                           setRosterEditingId(null)
                           toast('已更新')
@@ -148,6 +159,12 @@ export function MyAndDepartmentsPage() {
                   ) : (
                     <>
                       <span className="team-roster-name">{m.name}</span>
+                      <span className="team-roster-dept-tag">
+                        {m.departmentId
+                          ? data.departments.find((d) => d.id === m.departmentId)
+                              ?.name ?? '（部門已刪）'
+                          : '未指定部門'}
+                      </span>
                       {m.role ? (
                         <span className="team-roster-role">{m.role}</span>
                       ) : null}
@@ -159,6 +176,7 @@ export function MyAndDepartmentsPage() {
                           setRosterEditingId(m.id)
                           setRosterEditName(m.name)
                           setRosterEditRole(m.role ?? '')
+                          setRosterEditDeptId(m.departmentId)
                         }}
                       >
                         編輯
@@ -318,7 +336,11 @@ export function MyAndDepartmentsPage() {
               type="button"
               className="btn btn-primary"
               onClick={() => {
-                addTeamRosterMember(rosterName, rosterRole || undefined)
+                addTeamRosterMember(
+                  rosterName,
+                  rosterRole || undefined,
+                  rosterDeptId,
+                )
                 setRosterModalOpen(false)
               }}
             >
@@ -336,6 +358,19 @@ export function MyAndDepartmentsPage() {
             onChange={(e) => setRosterName(e.target.value)}
             placeholder="例：王小明"
           />
+        </div>
+        <div className="modal-field">
+          <label>所屬部門</label>
+          <DepartmentSelect
+            departments={data.departments}
+            value={rosterDeptId}
+            onChange={setRosterDeptId}
+            className="input"
+            style={{ width: '100%' }}
+          />
+          <p className="modal-note" style={{ marginTop: 6 }}>
+            選「我的任務」代表未指定部門。
+          </p>
         </div>
         <div className="modal-field">
           <label>職稱或備註（可留空）</label>

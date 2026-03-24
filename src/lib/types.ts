@@ -20,6 +20,8 @@ export interface Department {
 export interface TeamRosterMember {
   id: string
   name: string
+  /** 所屬部門；null 表示未指定 */
+  departmentId: string | null
   /** 職稱或備註，可留空 */
   role?: string
 }
