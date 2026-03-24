@@ -80,6 +80,9 @@ export function migrateAppData(raw: unknown): AppData {
     completedAt:
       t.completedAt != null ? String(t.completedAt) : undefined,
     ...(t.weeklyCommit === true ? { weeklyCommit: true as const } : {}),
+    ...(typeof t.smallProjectId === 'string' && t.smallProjectId.length > 0
+      ? { smallProjectId: String(t.smallProjectId) }
+      : {}),
   })
 
   const mapWaiting = (

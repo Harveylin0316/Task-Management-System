@@ -11,6 +11,7 @@ import {
 import { SupabaseEmailAuthBar } from '../components/SupabaseEmailAuthBar'
 import {
   createAsyncLocalStorageDataSource,
+  readPersistedLocalAppData,
   type AsyncDataSource,
 } from '../lib/dataSource'
 import { defaultData } from '../lib/defaultData'
@@ -28,6 +29,7 @@ import type {
   BigProjectStatus,
   Priority,
   SmallProject,
+  TaskItem,
   TaskSection,
   WaitingItem,
 } from '../lib/types'
@@ -58,7 +60,13 @@ export type DashboardContextValue = {
       departmentId?: string | null
       assignee?: string
       weeklyCommit?: boolean
+      smallProjectId?: string
     },
+  ) => void
+  updateTaskMeta: (
+    section: TaskSection,
+    taskId: string,
+    patch: { title?: string; note?: string },
   ) => void
   updateTaskDue: (
     section: TaskSection,
@@ -76,6 +84,11 @@ export type DashboardContextValue = {
     departmentId: string | null,
   ) => void
   toggleTaskWeeklyCommit: (section: TaskSection, taskId: string) => void
+  updateTaskSmallProject: (
+    section: TaskSection,
+    taskId: string,
+    smallProjectId: string | null,
+  ) => void
   addDepartment: (name: string) => void
   renameDepartment: (id: string, name: string) => void
   removeDepartment: (id: string) => void
@@ -120,6 +133,9 @@ export type DashboardContextValue = {
     owner?: string
     departmentId?: string | null
     participants?: string[]
+    /** 建立專案時一併建立之任務（建議填寫，專案應至少有一項任務） */
+    initialTaskTitle?: string
+    initialTaskSection?: 'today' | 'active' | 'someday'
   }) => void
   updateSmallProject: (
     id: string,
@@ -185,6 +201,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const sourceRef = useRef<AsyncDataSource | null>(null)
   if (!sourceRef.current) sourceRef.current = getOrCreateAsyncSource()
 
+  /** 僅在資料來源成功載入（或從本機備份復原）後才自動存檔，避免載入失敗時用空白狀態覆寫雲端 */
+  const mayPersistRef = useRef(false)
+
   const [data, setData] = useState<AppData>(() => defaultData())
   const [hydrated, setHydrated] = useState(false)
   const [cloudNeedsEmail, setCloudNeedsEmail] = useState(false)
@@ -202,6 +221,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     try {
       const loaded = await sourceRef.current!.load()
       setData(migrateAppData(loaded))
+      mayPersistRef.current = true
       const src = sourceRef.current!
       if (isSupabaseAsyncDataSource(src) && src.needsEmailToReachCloud()) {
         setCloudNeedsEmail(true)
@@ -221,13 +241,29 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         const loaded = await sourceRef.current!.load()
         if (cancelled) return
         setData(migrateAppData(loaded))
+        mayPersistRef.current = true
         const src = sourceRef.current!
         if (isSupabaseAsyncDataSource(src) && src.needsEmailToReachCloud()) {
           setCloudNeedsEmail(true)
         }
       } catch (e) {
-        console.error('載入資料失敗，已使用空白資料', e)
-        if (!cancelled) setData(defaultData())
+        console.error('載入資料失敗', e)
+        if (!cancelled) {
+          const recovered = readPersistedLocalAppData()
+          if (recovered) {
+            setData(recovered)
+            mayPersistRef.current = true
+            toast(
+              '雲端載入失敗，已改顯示瀏覽器本機備份。請確認網路後重新整理，並盡快使用「匯出 JSON」備份。',
+            )
+          } else {
+            setData(defaultData())
+            mayPersistRef.current = false
+            toast(
+              '載入失敗，已顯示空白資料且未寫入雲端（避免覆寫您的資料）。請重新整理或檢查 Supabase／網路設定。',
+            )
+          }
+        }
       } finally {
         if (!cancelled) setHydrated(true)
       }
@@ -255,7 +291,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, [data.bigProjects, selectedBigProjectIdx])
 
   useEffect(() => {
-    if (!hydrated) return
+    if (!hydrated || !mayPersistRef.current) return
     const src = sourceRef.current!
     const t = window.setTimeout(() => {
       void src.save(data).catch((err) => {
@@ -291,6 +327,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         try {
           const parsed = JSON.parse(String(reader.result))
           setData(migrateAppData(parsed))
+          mayPersistRef.current = true
           setSelectedBigProjectIdx(0)
           toast('資料已匯入')
         } catch {
@@ -334,16 +371,18 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         departmentId?: string | null
         assignee?: string
         weeklyCommit?: boolean
+        smallProjectId?: string
       },
     ) => {
       const t = title.trim()
       if (!t) return
-      const dept =
+      let dept =
         opts?.departmentId === undefined
           ? null
           : opts.departmentId === '' || opts.departmentId == null
             ? null
             : opts.departmentId
+      let linkedProjectId: string | undefined
       const assignee =
         opts?.assignee != null && opts.assignee.trim() !== ''
           ? opts.assignee.trim()
@@ -352,23 +391,57 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         opts?.due != null && opts.due.trim() !== ''
           ? opts.due.trim()
           : undefined
+      setData((prev) => {
+        if (opts?.smallProjectId) {
+          const proj = prev.projects.find((x) => x.id === opts.smallProjectId)
+          if (proj) {
+            linkedProjectId = proj.id
+            if (proj.departmentId != null) dept = proj.departmentId
+          }
+        }
+        const row: TaskItem = {
+          id: newId(),
+          title: t,
+          done: false,
+          priority: opts?.priority ?? 'mid',
+          created: new Date().toLocaleDateString('zh-TW'),
+          departmentId: dept,
+          assignee,
+          due,
+          note: opts?.note,
+          ...(opts?.weeklyCommit === true ? { weeklyCommit: true } : {}),
+          ...(linkedProjectId ? { smallProjectId: linkedProjectId } : {}),
+        }
+        return {
+          ...prev,
+          [section]: [...prev[section], row],
+        }
+      })
+    },
+    [],
+  )
+
+  const updateTaskMeta = useCallback(
+    (
+      section: TaskSection,
+      taskId: string,
+      patch: { title?: string; note?: string },
+    ) => {
       setData((prev) => ({
         ...prev,
-        [section]: [
-          ...prev[section],
-          {
-            id: newId(),
-            title: t,
-            done: false,
-            priority: opts?.priority ?? 'mid',
-            created: new Date().toLocaleDateString('zh-TW'),
-            departmentId: dept,
-            assignee,
-            due,
-            note: opts?.note,
-            ...(opts?.weeklyCommit === true ? { weeklyCommit: true } : {}),
-          },
-        ],
+        [section]: prev[section].map((task) => {
+          if (task.id !== taskId) return task
+          const next = { ...task }
+          if (patch.title !== undefined) {
+            const tt = patch.title.trim()
+            if (tt) next.title = tt
+          }
+          if (patch.note !== undefined) {
+            const n = patch.note.trim()
+            next.note = n || undefined
+          }
+          return next
+        }),
       }))
     },
     [],
@@ -408,9 +481,21 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     (section: TaskSection, taskId: string, departmentId: string | null) => {
       setData((prev) => ({
         ...prev,
-        [section]: prev[section].map((t) =>
-          t.id === taskId ? { ...t, departmentId } : t,
-        ),
+        [section]: prev[section].map((t) => {
+          if (t.id !== taskId) return t
+          const next: TaskItem = { ...t, departmentId }
+          if (t.smallProjectId) {
+            const p = prev.projects.find((x) => x.id === t.smallProjectId)
+            if (
+              p &&
+              p.departmentId != null &&
+              p.departmentId !== departmentId
+            ) {
+              delete next.smallProjectId
+            }
+          }
+          return next
+        }),
       }))
     },
     [],
@@ -426,6 +511,34 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             : t,
         ),
       }))
+    },
+    [],
+  )
+
+  const updateTaskSmallProject = useCallback(
+    (section: TaskSection, taskId: string, smallProjectId: string | null) => {
+      setData((prev) => {
+        const proj = smallProjectId
+          ? prev.projects.find((p) => p.id === smallProjectId)
+          : null
+        if (smallProjectId && !proj) return prev
+        return {
+          ...prev,
+          [section]: prev[section].map((t) => {
+            if (t.id !== taskId) return t
+            const next: TaskItem = { ...t }
+            if (proj) {
+              next.smallProjectId = proj.id
+              if (proj.departmentId != null) {
+                next.departmentId = proj.departmentId
+              }
+            } else {
+              delete next.smallProjectId
+            }
+            return next
+          }),
+        }
+      })
     },
     [],
   )
@@ -732,6 +845,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       owner?: string
       departmentId?: string | null
       participants?: string[]
+      initialTaskTitle?: string
+      initialTaskSection?: 'today' | 'active' | 'someday'
     }) => {
       const n = p.name.trim()
       if (!n) return
@@ -742,21 +857,38 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         p.departmentId === undefined || p.departmentId === ''
           ? null
           : p.departmentId
-      setData((prev) => ({
-        ...prev,
-        projects: [
-          ...prev.projects,
-          {
-            id: newId(),
-            name: n,
-            due: (p.due ?? '').trim(),
-            owner: (p.owner ?? '').trim(),
-            progress: 0,
-            departmentId: dept,
-            participants,
-          },
-        ],
-      }))
+      const taskTitle = p.initialTaskTitle?.trim()
+      const sec = p.initialTaskSection ?? 'active'
+      setData((prev) => {
+        const pid = newId()
+        const proj: SmallProject = {
+          id: pid,
+          name: n,
+          due: (p.due ?? '').trim(),
+          owner: (p.owner ?? '').trim(),
+          progress: 0,
+          departmentId: dept,
+          participants,
+        }
+        const next: AppData = {
+          ...prev,
+          projects: [...prev.projects, proj],
+        }
+        if (!taskTitle) return next
+        const task: TaskItem = {
+          id: newId(),
+          title: taskTitle,
+          done: false,
+          priority: 'mid',
+          created: new Date().toLocaleDateString('zh-TW'),
+          departmentId: dept,
+          smallProjectId: pid,
+        }
+        return {
+          ...next,
+          [sec]: [...next[sec], task],
+        }
+      })
     },
     [],
   )
@@ -792,9 +924,19 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const removeSmallProject = useCallback((id: string) => {
+    const clearPid = (t: TaskItem): TaskItem => {
+      if (t.smallProjectId !== id) return t
+      const next = { ...t }
+      delete next.smallProjectId
+      return next
+    }
     setData((prev) => ({
       ...prev,
       projects: prev.projects.filter((p) => p.id !== id),
+      today: prev.today.map(clearPid),
+      active: prev.active.map(clearPid),
+      someday: prev.someday.map(clearPid),
+      done: prev.done.map(clearPid),
     }))
   }, [])
 
@@ -1169,10 +1311,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       importJsonFromFile,
       exportMarkdown,
       addTask,
+      updateTaskMeta,
       updateTaskDue,
       updateTaskAssignee,
       updateTaskDepartment,
       toggleTaskWeeklyCommit,
+      updateTaskSmallProject,
       addDepartment,
       addDepartmentKpi,
       updateDepartmentKpi,
@@ -1224,10 +1368,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       importJsonFromFile,
       exportMarkdown,
       addTask,
+      updateTaskMeta,
       updateTaskDue,
       updateTaskAssignee,
       updateTaskDepartment,
       toggleTaskWeeklyCommit,
+      updateTaskSmallProject,
       addDepartment,
       addDepartmentKpi,
       updateDepartmentKpi,

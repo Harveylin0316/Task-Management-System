@@ -34,6 +34,8 @@ export interface TaskItem {
   created: string
   /** null 或 undefined 視為「我自己的任務」；有值則為該部門的工作任務 */
   departmentId: string | null
+  /** 隸屬之小型專案（任務看板「專案進度」）；可為空代表僅部門任務 */
+  smallProjectId?: string
   /** 任務負責人（與專案參與者連動報表） */
   assignee?: string
   due?: string

@@ -8,9 +8,11 @@ import { WeeklyPage } from '../pages/WeeklyPage'
 import { ProjectsPage } from '../pages/ProjectsPage'
 import { MyAndDepartmentsPage } from '../pages/MyAndDepartmentsPage'
 import { TrackOverviewPage } from '../pages/TrackOverviewPage'
+import { DepartmentWorkspacePage } from '../pages/DepartmentWorkspacePage'
 
 export type TabId =
   | 'today'
+  | 'deptws'
   | 'mydept'
   | 'track'
   | 'tasks'
@@ -18,8 +20,18 @@ export type TabId =
   | 'weekly'
   | 'projects'
 
+function readInitialTab(): TabId {
+  try {
+    if (localStorage.getItem('wm_default_tab_v1') === 'deptws') return 'deptws'
+  } catch {
+    /* */
+  }
+  return 'today'
+}
+
 const TABS: { id: TabId; label: string }[] = [
   { id: 'today', label: '📅 今日' },
+  { id: 'deptws', label: '🏢 部門工作台' },
   { id: 'mydept', label: '🏬 部門與KPI管理' },
   { id: 'track', label: '📉 追蹤總覽' },
   { id: 'tasks', label: '📋 任務看板' },
@@ -53,7 +65,7 @@ function TeamRosterDatalists() {
 }
 
 export function Dashboard() {
-  const [tab, setTab] = useState<TabId>('today')
+  const [tab, setTab] = useState<TabId>(readInitialTab)
 
   return (
     <>
@@ -75,6 +87,9 @@ export function Dashboard() {
       <main className="main">
         <div className={`page ${tab === 'today' ? 'active' : ''}`}>
           <TodayPage />
+        </div>
+        <div className={`page ${tab === 'deptws' ? 'active' : ''}`}>
+          <DepartmentWorkspacePage />
         </div>
         <div className={`page ${tab === 'mydept' ? 'active' : ''}`}>
           <MyAndDepartmentsPage />

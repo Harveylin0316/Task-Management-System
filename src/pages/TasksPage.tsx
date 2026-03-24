@@ -27,6 +27,10 @@ export function TasksPage() {
   const [pDue, setPDue] = useState('')
   const [pOwner, setPOwner] = useState('')
   const [pDeptId, setPDeptId] = useState<string | null>(null)
+  const [pFirstTask, setPFirstTask] = useState('')
+  const [pFirstSection, setPFirstSection] = useState<'today' | 'active' | 'someday'>(
+    'active',
+  )
   const [pParticipantsRaw, setPParticipantsRaw] = useState('')
   const [editProjectId, setEditProjectId] = useState<string | null>(null)
   const [epName, setEpName] = useState('')
@@ -68,18 +72,29 @@ export function TasksPage() {
     [data.done, scopeFilter],
   )
 
+  const allProjectOptions = useMemo(
+    () => data.projects.map((p) => ({ id: p.id, name: p.name })),
+    [data.projects],
+  )
+
   const submitProject = () => {
+    const ft = pFirstTask.trim()
     addSmallProject({
       name: pName,
       due: pDue,
       owner: pOwner,
       departmentId: pDeptId,
       participants: parseParticipantNames(pParticipantsRaw),
+      ...(ft
+        ? { initialTaskTitle: ft, initialTaskSection: pFirstSection }
+        : {}),
     })
     setPName('')
     setPDue('')
     setPOwner('')
     setPDeptId(null)
+    setPFirstTask('')
+    setPFirstSection('active')
     setPParticipantsRaw('')
     setProjOpen(false)
   }
@@ -136,7 +151,11 @@ export function TasksPage() {
             <span className="card-badge">{activeF.length}</span>
           </div>
           <div className="card-body">
-            <TaskRows items={activeF} section="active" />
+            <TaskRows
+              items={activeF}
+              section="active"
+              projectLinkOptions={allProjectOptions}
+            />
             <div className="add-task-row">
               <DepartmentSelect
                 departments={data.departments}
@@ -189,7 +208,11 @@ export function TasksPage() {
             <span className="card-badge">{somedayF.length}</span>
           </div>
           <div className="card-body">
-            <TaskRows items={somedayF} section="someday" />
+            <TaskRows
+              items={somedayF}
+              section="someday"
+              projectLinkOptions={allProjectOptions}
+            />
             <div className="add-task-row">
               <DepartmentSelect
                 departments={data.departments}
@@ -379,6 +402,33 @@ export function TasksPage() {
             value={pName}
             onChange={(e) => setPName(e.target.value)}
           />
+        </div>
+        <div className="modal-field">
+          <label htmlFor="sp-first-task">第一個任務（建議填寫；專案應至少有一項任務）</label>
+          <input
+            id="sp-first-task"
+            className="input"
+            style={{ width: '100%' }}
+            value={pFirstTask}
+            onChange={(e) => setPFirstTask(e.target.value)}
+            placeholder="可留空，之後在任務看板掛上專案"
+          />
+        </div>
+        <div className="modal-field">
+          <label htmlFor="sp-first-sec">第一筆任務區塊</label>
+          <select
+            id="sp-first-sec"
+            className="input"
+            style={{ width: '100%' }}
+            value={pFirstSection}
+            onChange={(e) =>
+              setPFirstSection(e.target.value as 'today' | 'active' | 'someday')
+            }
+          >
+            <option value="today">今日</option>
+            <option value="active">進行中</option>
+            <option value="someday">日後再說</option>
+          </select>
         </div>
         <div className="modal-field">
           <label htmlFor="sp-dept">歸屬部門（與 KPI、追蹤總覽連動）</label>

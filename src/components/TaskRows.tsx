@@ -12,11 +12,20 @@ export function TaskRows({
   items,
   section,
   showDepartmentPicker = true,
+  lockDepartment = false,
+  projectLinkOptions,
+  showInlineTitleEdit = false,
 }: {
   items: TaskItem[]
   section: TaskSection
   /** 是否顯示「我的／部門」切換（已完成區可關閉以節省空間） */
   showDepartmentPicker?: boolean
+  /** 為 true 時不顯示部門下拉（部門工作台已鎖定部門） */
+  lockDepartment?: boolean
+  /** 若提供，每列可將任務掛到部門內專案或改為「不屬專案」 */
+  projectLinkOptions?: { id: string; name: string }[]
+  /** 可直接編輯標題（blur 後寫入） */
+  showInlineTitleEdit?: boolean
 }) {
   const {
     data,
@@ -26,7 +35,11 @@ export function TaskRows({
     updateTaskAssignee,
     updateTaskDue,
     toggleTaskWeeklyCommit,
+    updateTaskSmallProject,
+    updateTaskMeta,
   } = useDashboard()
+
+  const showDeptSelect = showDepartmentPicker && !lockDepartment && section !== 'done'
 
   if (!items.length) {
     return (
@@ -55,9 +68,24 @@ export function TaskRows({
             aria-label={item.done ? '標記未完成' : '標記完成'}
           />
           <div className="task-content">
-            <div className={`task-title ${item.done ? 'done' : ''}`}>
-              {item.title}
-            </div>
+            {showInlineTitleEdit && section !== 'done' ? (
+              <input
+                key={item.id}
+                className="input task-title-edit"
+                defaultValue={item.title}
+                onBlur={(e) => {
+                  const v = e.target.value.trim()
+                  if (v && v !== item.title) {
+                    updateTaskMeta(section, item.id, { title: v })
+                  }
+                }}
+                aria-label="任務標題"
+              />
+            ) : (
+              <div className={`task-title ${item.done ? 'done' : ''}`}>
+                {item.title}
+              </div>
+            )}
             <div className="task-row-bottom">
               <div className="task-meta">
                 <span
@@ -68,6 +96,13 @@ export function TaskRows({
                     : data.departments.find((d) => d.id === item.departmentId)
                         ?.name ?? '部門'}
                 </span>
+                {item.smallProjectId ? (
+                  <span className="tag tag-waiting" title="專案任務">
+                    📁{' '}
+                    {data.projects.find((p) => p.id === item.smallProjectId)
+                      ?.name ?? '專案'}
+                  </span>
+                ) : null}
                 {section === 'done' && item.assignee ? (
                   <span>✋ {item.assignee}</span>
                 ) : null}
@@ -100,6 +135,27 @@ export function TaskRows({
                   >
                     本週承諾
                   </button>
+                  {projectLinkOptions?.length ? (
+                    <select
+                      className="input task-project-select"
+                      value={item.smallProjectId ?? ''}
+                      onChange={(e) =>
+                        updateTaskSmallProject(
+                          section,
+                          item.id,
+                          e.target.value || null,
+                        )
+                      }
+                      aria-label="隸屬專案"
+                    >
+                      <option value="">不屬專案</option>
+                      {projectLinkOptions.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
                   <input
                     type="date"
                     className="input task-due-input"
@@ -125,14 +181,16 @@ export function TaskRows({
                     }
                     aria-label="任務負責人"
                   />
-                  <DepartmentSelect
-                    departments={data.departments}
-                    value={item.departmentId}
-                    onChange={(deptId) =>
-                      updateTaskDepartment(section, item.id, deptId)
-                    }
-                    className="input task-dept-select"
-                  />
+                  {showDeptSelect ? (
+                    <DepartmentSelect
+                      departments={data.departments}
+                      value={item.departmentId}
+                      onChange={(deptId) =>
+                        updateTaskDepartment(section, item.id, deptId)
+                      }
+                      className="input task-dept-select"
+                    />
+                  ) : null}
                 </>
               ) : null}
             </div>
