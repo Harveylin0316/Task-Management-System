@@ -43,9 +43,20 @@ export function SupabaseEmailAuthBar({ visible, toast }: Props) {
       }
       if (data.session) {
         toast('註冊並登入成功，正在同步…')
-      } else {
-        toast('請至信箱點驗證信後重新整理（或關閉 Email 確認以立即登入）')
+        return
       }
+      // 關閉 Confirm email 後，部分專案 signUp 仍不帶 session，改試立即登入
+      const { error: signInErr } = await client.auth.signInWithPassword({
+        email: em,
+        password: pw,
+      })
+      if (!signInErr) {
+        toast('註冊成功，已登入並同步雲端…')
+        return
+      }
+      toast(
+        `帳號已建立。請按「登入」試一次；若後台仍開「信箱確認」，再查驗證信（含垃圾信匣）。`,
+      )
     } finally {
       setBusy(false)
     }
@@ -95,8 +106,8 @@ export function SupabaseEmailAuthBar({ visible, toast }: Props) {
           </button>
         </div>
         <p className="cloud-email-bar-hint">
-          Supabase → Authentication → Providers 請開啟 <strong>Email</strong>
-          ，並建議關閉「Confirm email」以便立即取得 session（僅個人專案適用）。
+          請在 Supabase → Authentication → Providers 開啟 <strong>Email</strong>
+          。若已關閉「Confirm email」，註冊後通常會直接登入；若沒有，請按「登入」。
         </p>
       </div>
     </div>
