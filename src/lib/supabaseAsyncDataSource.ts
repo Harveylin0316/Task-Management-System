@@ -10,8 +10,15 @@ import {
   augmentAppDataWithRosterFromAssigneesIfEmpty,
   migrateAppData,
 } from './migrate'
-import { prepareAppDataForPersist } from './persistPayload'
+import {
+  payloadToAppData,
+  prepareAppDataForPersist,
+} from './persistPayload'
 import type { AppData } from './types'
+
+function cloneAppDataForSave(data: AppData): AppData {
+  return structuredClone(data) as AppData
+}
 
 export type SupabaseAsyncDataSource = AsyncDataSource & {
   /** 匿名被 API 擋下且尚無任何登入 session 時為 true，需改 Email 登入才會寫雲端 */
@@ -161,8 +168,9 @@ async function upsertPayload(
   userId: string,
   data: AppData,
 ): Promise<AppData | undefined> {
+  const snap = cloneAppDataForSave(data)
   let outgoing = prepareAppDataForPersist(
-    augmentAppDataWithRosterFromAssigneesIfEmpty(data),
+    augmentAppDataWithRosterFromAssigneesIfEmpty(snap),
   )
   let didMergeRosterFromServer = false
 
@@ -176,7 +184,6 @@ async function upsertPayload(
   const existingPayload = row?.payload
   if (
     outgoing.teamRoster.length === 0 &&
-    outgoing.teamRosterCloudBackup.length === 0 &&
     outgoing.ui.teamRosterClearedByUser !== true &&
     existingPayload != null &&
     typeof existingPayload === 'object' &&
@@ -201,7 +208,7 @@ async function upsertPayload(
     { onConflict: 'user_id' },
   )
   if (error) throw error
-  return didMergeRosterFromServer ? outgoing : undefined
+  return didMergeRosterFromServer ? payloadToAppData(outgoing) : undefined
 }
 
 export function isSupabaseAsyncDataSource(

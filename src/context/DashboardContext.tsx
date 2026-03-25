@@ -21,6 +21,8 @@ import { isAssigneeInDepartmentRoster } from '../lib/taskAssignment'
 import { migrateAppData } from '../lib/migrate'
 import { exampleBossWeeklyReportHen20260318 } from '../lib/bossWeeklyReportExampleData'
 import { appendDoneTasksToAccomplished } from '../lib/weeklyAccomplished'
+import { prepareAppDataForPersist } from '../lib/persistPayload'
+import { reconcileAppDataRoster } from '../lib/rosterReconcile'
 import {
   createSupabaseAsyncDataSource,
   isSupabaseAsyncDataSource,
@@ -268,7 +270,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         }
       }
       const loaded = await src.load()
-      setData(loaded)
+      setData((p) => reconcileAppDataRoster(p, loaded))
       mayPersistRef.current = isSupabaseAsyncDataSource(src)
         ? src.allowAutoSaveAfterLoad()
         : true
@@ -289,7 +291,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       try {
         const loaded = await sourceRef.current!.load()
         if (cancelled) return
-        setData(loaded)
+        setData((p) => reconcileAppDataRoster(p, loaded))
         initialDataLoadedRef.current = true
         const src = sourceRef.current!
         mayPersistRef.current = isSupabaseAsyncDataSource(src)
@@ -305,7 +307,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           const recovered = readPersistedLocalAppData()
           if (recovered) {
-            setData(recovered)
+            setData((p) => reconcileAppDataRoster(p, recovered))
             initialDataLoadedRef.current = true
             mayPersistRef.current = true
             toast(
@@ -406,9 +408,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const exportJson = useCallback(() => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: 'application/json',
-    })
+    const blob = new Blob(
+      [JSON.stringify(prepareAppDataForPersist(data), null, 2)],
+      { type: 'application/json' },
+    )
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = 'data.json'

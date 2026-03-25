@@ -82,11 +82,9 @@ export function augmentAppDataWithRosterFromAssigneesIfEmpty(data: AppData): App
   )
   if (inferred.length === 0) return data
   const roster = inferred.map((m) => ({ ...m }))
-  const backup = roster.map((m) => ({ ...m }))
   return {
     ...data,
     teamRoster: roster,
-    teamRosterCloudBackup: backup,
   }
 }
 
@@ -326,22 +324,9 @@ export function migrateAppData(raw: unknown): AppData {
   if (uiRaw.skipAnonymousSignIn === true) ui.skipAnonymousSignIn = true
   if (rosterClearedByUser) ui.teamRosterClearedByUser = true
 
-  let teamRosterCloudBackup: TeamRosterMember[] = Array.isArray(
-    d.teamRosterCloudBackup,
-  )
-    ? d.teamRosterCloudBackup.map((x) =>
-        mapTeamRosterMember(x as unknown as Record<string, unknown>),
-      )
-    : base.teamRosterCloudBackup
-
-  if (teamRoster.length > 0 && teamRosterCloudBackup.length === 0) {
-    teamRosterCloudBackup = teamRoster.map((m) => ({ ...m }))
-  }
-
   return {
     departments,
     teamRoster,
-    teamRosterCloudBackup,
     ui,
     today: Array.isArray(d.today) ? d.today.map((t) => mapTask(t as Record<string, unknown>)) : base.today,
     active: Array.isArray(d.active)

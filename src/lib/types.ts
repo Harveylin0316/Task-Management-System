@@ -184,11 +184,6 @@ export interface AppData {
   departments: Department[]
   /** 團隊成員名冊 */
   teamRoster: TeamRosterMember[]
-  /**
-   * 與 teamRoster 一併維護；雲端若漏寫 teamRoster 時由此補回（見 migrate）。
-   * 存檔前由 prepareAppDataForPersist 更新。
-   */
-  teamRosterCloudBackup: TeamRosterMember[]
   ui: AppUiPrefs
   today: TaskItem[]
   active: TaskItem[]
@@ -202,6 +197,14 @@ export interface AppData {
   /** 給老闆／總部的週報草稿（與內部「週報回顧」分開） */
   bossWeeklyReport: BossWeeklyReport
   bigProjects: BigProject[]
+}
+
+/**
+ * 寫入 Supabase／localStorage 的 JSON 形狀；內含舊版相容欄位 teamRosterCloudBackup（由 prepareAppDataForPersist 注入）。
+ * React 狀態與 migrate 產出請一律使用 AppData。
+ */
+export type DashboardDataPayload = AppData & {
+  teamRosterCloudBackup: TeamRosterMember[]
 }
 
 export type TaskSection = 'today' | 'active' | 'someday' | 'done'
