@@ -14,6 +14,7 @@ import type {
   SmallProject,
   Subtask,
   TaskItem,
+  TaskSubtask,
   TeamMember,
   TeamRosterMember,
   WaitingItem,
@@ -125,6 +126,22 @@ export function migrateAppData(raw: unknown): AppData {
     role: x.role != null && String(x.role).trim() !== '' ? String(x.role) : undefined,
   })
 
+  const mapTaskSubtask = (
+    s: Partial<TaskSubtask> & Record<string, unknown>,
+  ): TaskSubtask => ({
+    id: typeof s.id === 'string' ? s.id : nid(),
+    title: String(s.title ?? ''),
+    done: Boolean(s.done),
+    due:
+      s.due != null && String(s.due).trim() !== ''
+        ? String(s.due).trim()
+        : undefined,
+    assignee:
+      s.assignee != null && String(s.assignee).trim() !== ''
+        ? String(s.assignee).trim()
+        : undefined,
+  })
+
   const mapTask = (t: Partial<TaskItem> & Record<string, unknown>): TaskItem => ({
     id: typeof t.id === 'string' ? t.id : nid(),
     title: String(t.title ?? ''),
@@ -149,6 +166,13 @@ export function migrateAppData(raw: unknown): AppData {
     ...(t.weeklyCommit === true ? { weeklyCommit: true as const } : {}),
     ...(typeof t.smallProjectId === 'string' && t.smallProjectId.length > 0
       ? { smallProjectId: String(t.smallProjectId) }
+      : {}),
+    ...(Array.isArray(t.subtasks) && t.subtasks.length > 0
+      ? {
+          subtasks: t.subtasks.map((x) =>
+            mapTaskSubtask(x as unknown as Record<string, unknown>),
+          ),
+        }
       : {}),
   })
 

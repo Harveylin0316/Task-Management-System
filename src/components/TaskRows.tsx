@@ -1,9 +1,150 @@
+import { useState } from 'react'
 import { useDashboard } from '../context/DashboardContext'
 import { DateTextAndPicker } from './DateTextAndPicker'
 import { DepartmentSelect } from './DepartmentSelect'
 import { RosterMemberSelect } from './RosterMemberSelect'
 import { dueBadgeLabel, dueKindAndOffset } from '../lib/dateUtils'
-import type { TaskItem, TaskSection } from '../lib/types'
+import type {
+  TaskItem,
+  TaskSection,
+  TaskSubtask,
+  TeamRosterMember,
+} from '../lib/types'
+
+function TaskSubtasksSection({
+  section,
+  taskId,
+  items,
+  editable,
+  rosterDeptId,
+  teamRoster,
+}: {
+  section: TaskSection
+  taskId: string
+  items: TaskSubtask[]
+  editable: boolean
+  rosterDeptId: string | null
+  teamRoster: TeamRosterMember[]
+}) {
+  const {
+    addTaskSubtask,
+    removeTaskSubtask,
+    toggleTaskSubtask,
+    updateTaskSubtask,
+  } = useDashboard()
+  const [draft, setDraft] = useState('')
+
+  const commitAdd = () => {
+    if (addTaskSubtask(section, taskId, draft)) setDraft('')
+  }
+
+  if (!items.length && !editable) return null
+
+  return (
+    <div className="task-subtasks">
+      {items.map((s) => (
+        <div key={s.id} className="task-subtask-row">
+          {editable ? (
+            <button
+              type="button"
+              className={`task-check task-subtask-check ${s.done ? 'checked' : ''}`}
+              onClick={() => toggleTaskSubtask(section, taskId, s.id)}
+              aria-label={s.done ? '子任務改為未完成' : '子任務完成'}
+            />
+          ) : (
+            <span className="task-subtask-done-mark" aria-hidden>
+              {s.done ? '✓' : '○'}
+            </span>
+          )}
+          {editable ? (
+            <input
+              className="input task-subtask-title"
+              defaultValue={s.title}
+              onBlur={(e) => {
+                const v = e.target.value.trim()
+                if (v && v !== s.title) {
+                  updateTaskSubtask(section, taskId, s.id, { title: v })
+                }
+              }}
+              aria-label="子任務標題"
+            />
+          ) : (
+            <span
+              className={
+                s.done
+                  ? 'task-subtask-title-text done'
+                  : 'task-subtask-title-text'
+              }
+            >
+              {s.title}
+            </span>
+          )}
+          {editable ? (
+            <RosterMemberSelect
+              roster={teamRoster}
+              departmentId={rosterDeptId}
+              value={s.assignee ?? ''}
+              onChange={(name) =>
+                updateTaskSubtask(section, taskId, s.id, {
+                  assignee: name,
+                })
+              }
+              className="input task-subtask-assignee"
+              allowEmpty
+            />
+          ) : s.assignee ? (
+            <span className="task-subtask-assignee-read" title="子任務負責人">
+              ✋ {s.assignee}
+            </span>
+          ) : null}
+          {editable ? (
+            <DateTextAndPicker
+              className="input task-subtask-due"
+              style={{ maxWidth: 220 }}
+              textPlaceholder="子任務截止（選填）"
+              value={s.due ?? ''}
+              onChange={(v) =>
+                updateTaskSubtask(section, taskId, s.id, { due: v })
+              }
+            />
+          ) : s.due ? (
+            <span className="task-subtask-due-read">📅 {s.due}</span>
+          ) : null}
+          {editable ? (
+            <button
+              type="button"
+              className="icon-btn task-subtask-remove"
+              title="刪除子任務"
+              onClick={() => removeTaskSubtask(section, taskId, s.id)}
+            >
+              ×
+            </button>
+          ) : null}
+        </div>
+      ))}
+      {editable ? (
+        <div className="task-subtask-add">
+          <input
+            className="input"
+            placeholder="新增子任務…"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                commitAdd()
+              }
+            }}
+            aria-label="新增子任務"
+          />
+          <button type="button" className="btn" onClick={commitAdd}>
+            ＋
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 export function TaskRows({
   items,
@@ -60,6 +201,8 @@ export function TaskRows({
       {items.map((item) => {
         const { kind: dueKind, daysUntil } = dueKindAndOffset(item.due)
         const rosterDeptId = deptForRoster(item)
+        const subtasks = item.subtasks ?? []
+        const subtasksEditable = section !== 'done'
         return (
         <div key={item.id} className="task-item">
           <div className={`priority-dot p-${item.priority || 'mid'}`} />
@@ -105,8 +248,8 @@ export function TaskRows({
                       ?.name ?? '專案'}
                   </span>
                 ) : null}
-                {section === 'done' && item.assignee ? (
-                  <span>✋ {item.assignee}</span>
+                {item.assignee ? (
+                  <span title="負責人">✋ {item.assignee}</span>
                 ) : null}
                 {section === 'done' && item.weeklyCommit ? (
                   <span className="tag tag-plan">本週承諾</span>
@@ -181,6 +324,7 @@ export function TaskRows({
                       )
                     }
                     className="input task-assignee-input"
+                    allowEmpty
                   />
                   <DateTextAndPicker
                     className="input task-due-input"
@@ -192,6 +336,14 @@ export function TaskRows({
                 </>
               ) : null}
             </div>
+            <TaskSubtasksSection
+              section={section}
+              taskId={item.id}
+              items={subtasks}
+              editable={subtasksEditable}
+              rosterDeptId={rosterDeptId}
+              teamRoster={data.teamRoster}
+            />
           </div>
           <button
             type="button"

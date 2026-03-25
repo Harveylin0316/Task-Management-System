@@ -83,11 +83,10 @@ export function TasksPage() {
         return
       }
       const owner = pOwner.trim()
-      if (!owner) {
-        toast('請選擇專案負責人（該部門名冊）')
-        return
-      }
-      if (!isAssigneeInDepartmentRoster(data.teamRoster, pDeptId, owner)) {
+      if (
+        owner &&
+        !isAssigneeInDepartmentRoster(data.teamRoster, pDeptId, owner)
+      ) {
         toast('負責人須為該部門名冊成員')
         return
       }
@@ -196,6 +195,7 @@ export function TasksPage() {
                 value={assigneeActive}
                 onChange={setAssigneeActive}
                 className="input task-assignee-input"
+                allowEmpty
               />
               <input
                 className="input"
@@ -257,6 +257,7 @@ export function TasksPage() {
                 value={assigneeSomeday}
                 onChange={setAssigneeSomeday}
                 className="input task-assignee-input"
+                allowEmpty
               />
               <input
                 className="input"
@@ -498,9 +499,7 @@ export function TasksPage() {
           />
         </div>
         <div className="modal-field">
-          <label htmlFor="sp-owner">
-            負責人（有填「第一個任務」時必填，須為該部門名冊）
-          </label>
+          <label htmlFor="sp-owner">專案負責人（選填，須為該部門名冊）</label>
           <RosterMemberSelect
             id="sp-owner"
             roster={data.teamRoster}

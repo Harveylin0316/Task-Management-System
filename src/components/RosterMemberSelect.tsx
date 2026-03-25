@@ -59,7 +59,7 @@ export function RosterMemberSelect({
       aria-label="負責人（團隊名冊）"
     >
       {allowEmpty ? (
-        <option value="">（可留空）</option>
+        <option value="">（不指定負責人）</option>
       ) : (
         <option value="">{placeholder}</option>
       )}

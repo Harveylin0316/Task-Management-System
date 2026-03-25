@@ -87,6 +87,7 @@ export function TodayPage() {
                 value={todayAssignee}
                 onChange={setTodayAssignee}
                 className="input task-assignee-input"
+                allowEmpty
               />
               <input
                 className="input"

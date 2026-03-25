@@ -193,6 +193,7 @@ function DeptProjectCard({
             value={assignee}
             onChange={setAssignee}
             className="input task-assignee-input"
+            allowEmpty
           />
           <input
             className="input"
@@ -400,11 +401,10 @@ export function DepartmentWorkspacePage() {
       return
     }
     const owner = pOwner.trim()
-    if (!owner) {
-      toast('請選擇專案負責人（本部門名冊）')
-      return
-    }
-    if (!isAssigneeInDepartmentRoster(data.teamRoster, deptId, owner)) {
+    if (
+      owner &&
+      !isAssigneeInDepartmentRoster(data.teamRoster, deptId, owner)
+    ) {
       toast('負責人須為本部門名冊成員')
       return
     }
@@ -570,6 +570,7 @@ export function DepartmentWorkspacePage() {
                         value={assigneeVal}
                         onChange={setAssigneeVal}
                         className="input task-assignee-input"
+                        allowEmpty
                       />
                       <input
                         className="input"
@@ -739,7 +740,7 @@ export function DepartmentWorkspacePage() {
           />
         </div>
         <div className="modal-field">
-          <label>專案負責人（必填，本部門名冊）</label>
+          <label>專案負責人（選填，本部門名冊）</label>
           <RosterMemberSelect
             roster={data.teamRoster}
             departmentId={deptId}
@@ -747,6 +748,7 @@ export function DepartmentWorkspacePage() {
             onChange={setPOwner}
             className="input"
             style={{ width: '100%' }}
+            allowEmpty
           />
         </div>
         <div className="modal-field">

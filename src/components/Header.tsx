@@ -202,7 +202,7 @@ export function Header() {
             />
           </div>
           <div className="modal-field">
-            <label htmlFor="add-task-assignee">負責人（該部門名冊）</label>
+            <label htmlFor="add-task-assignee">負責人（選填，該部門名冊）</label>
             <RosterMemberSelect
               id="add-task-assignee"
               roster={data.teamRoster}
@@ -211,6 +211,7 @@ export function Header() {
               onChange={setAddAssignee}
               className="input"
               style={{ width: '100%' }}
+              allowEmpty
             />
           </div>
           <div className="modal-field">

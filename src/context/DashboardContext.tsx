@@ -17,7 +17,10 @@ import {
 import { defaultData, emptyBossWeeklyReport } from '../lib/defaultData'
 import { toISODateLocal } from '../lib/dateUtils'
 import { newId } from '../lib/id'
-import { isAssigneeInDepartmentRoster } from '../lib/taskAssignment'
+import {
+  isAssigneeInDepartmentRoster,
+  reconcileSubtaskAssigneesToDepartment,
+} from '../lib/taskAssignment'
 import { migrateAppData } from '../lib/migrate'
 import { exampleBossWeeklyReportHen20260318 } from '../lib/bossWeeklyReportExampleData'
 import { appendDoneTasksToAccomplished } from '../lib/weeklyAccomplished'
@@ -36,6 +39,7 @@ import type {
   SmallProject,
   TaskItem,
   TaskSection,
+  TaskSubtask,
   WaitingItem,
 } from '../lib/types'
 
@@ -97,6 +101,23 @@ export type DashboardContextValue = {
     section: TaskSection,
     taskId: string,
     smallProjectId: string | null,
+  ) => void
+  addTaskSubtask: (section: TaskSection, taskId: string, title: string) => boolean
+  removeTaskSubtask: (
+    section: TaskSection,
+    taskId: string,
+    subtaskId: string,
+  ) => void
+  toggleTaskSubtask: (
+    section: TaskSection,
+    taskId: string,
+    subtaskId: string,
+  ) => void
+  updateTaskSubtask: (
+    section: TaskSection,
+    taskId: string,
+    subtaskId: string,
+    patch: Partial<Pick<TaskSubtask, 'title' | 'due' | 'assignee'>>,
   ) => void
   addDepartment: (name: string) => void
   renameDepartment: (id: string, name: string) => void
@@ -507,16 +528,15 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         toastT('請選擇部門')
         return false
       }
-      if (!assigneeRaw) {
-        toastT('請選擇該部門負責人（團隊名冊）')
-        return false
-      }
-      if (!isAssigneeInDepartmentRoster(prev.teamRoster, dept, assigneeRaw)) {
+      if (
+        assigneeRaw &&
+        !isAssigneeInDepartmentRoster(prev.teamRoster, dept, assigneeRaw)
+      ) {
         toastT('負責人須為該部門名冊成員，請至「部門與 KPI」維護名冊')
         return false
       }
 
-      const assignee = assigneeRaw
+      const assignee = assigneeRaw || undefined
       const due =
         opts?.due != null && opts.due.trim() !== ''
           ? opts.due.trim()
@@ -601,8 +621,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             return t
           }
           if (!a) {
-            toastRef.current('請選擇該部門負責人')
-            return t
+            return { ...t, assignee: undefined }
           }
           if (
             !isAssigneeInDepartmentRoster(
@@ -654,6 +673,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
               delete next.smallProjectId
             }
           }
+          const subs = reconcileSubtaskAssigneesToDepartment(
+            next.subtasks,
+            departmentId,
+            prev.teamRoster,
+          )
+          if (subs !== next.subtasks) next.subtasks = subs
           return next
         }),
       }))
@@ -702,6 +727,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
                 ) {
                   delete next.assignee
                 }
+                const subs = reconcileSubtaskAssigneesToDepartment(
+                  next.subtasks,
+                  next.departmentId,
+                  prev.teamRoster,
+                )
+                if (subs !== next.subtasks) next.subtasks = subs
               }
             } else {
               delete next.smallProjectId
@@ -710,6 +741,120 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           }),
         }
       })
+    },
+    [],
+  )
+
+  const addTaskSubtask = useCallback(
+    (section: TaskSection, taskId: string, title: string) => {
+      const t = title.trim()
+      if (!t) return false
+      setData((prev) => ({
+        ...prev,
+        [section]: prev[section].map((task) => {
+          if (task.id !== taskId) return task
+          const subs = task.subtasks ?? []
+          return {
+            ...task,
+            subtasks: [...subs, { id: newId(), title: t, done: false }],
+          }
+        }),
+      }))
+      return true
+    },
+    [],
+  )
+
+  const removeTaskSubtask = useCallback(
+    (section: TaskSection, taskId: string, subtaskId: string) => {
+      setData((prev) => ({
+        ...prev,
+        [section]: prev[section].map((task) => {
+          if (task.id !== taskId) return task
+          const subs = (task.subtasks ?? []).filter((s) => s.id !== subtaskId)
+          const next: TaskItem = { ...task }
+          if (subs.length === 0) delete next.subtasks
+          else next.subtasks = subs
+          return next
+        }),
+      }))
+    },
+    [],
+  )
+
+  const toggleTaskSubtask = useCallback(
+    (section: TaskSection, taskId: string, subtaskId: string) => {
+      setData((prev) => ({
+        ...prev,
+        [section]: prev[section].map((task) => {
+          if (task.id !== taskId) return task
+          const subs = task.subtasks ?? []
+          return {
+            ...task,
+            subtasks: subs.map((s) =>
+              s.id === subtaskId ? { ...s, done: !s.done } : s,
+            ),
+          }
+        }),
+      }))
+    },
+    [],
+  )
+
+  const updateTaskSubtask = useCallback(
+    (
+      section: TaskSection,
+      taskId: string,
+      subtaskId: string,
+      patch: Partial<Pick<TaskSubtask, 'title' | 'due' | 'assignee'>>,
+    ) => {
+      setData((prev) => ({
+        ...prev,
+        [section]: prev[section].map((task) => {
+          if (task.id !== taskId) return task
+          const subs = task.subtasks ?? []
+          return {
+            ...task,
+            subtasks: subs.map((s) => {
+              if (s.id !== subtaskId) return s
+              const next = { ...s }
+              if (patch.title !== undefined) {
+                const tt = patch.title.trim()
+                if (tt) next.title = tt
+              }
+              if (patch.due !== undefined) {
+                const d = patch.due.trim()
+                next.due = d || undefined
+              }
+              if (patch.assignee !== undefined) {
+                const raw = (patch.assignee ?? '').trim()
+                if (!raw) {
+                  delete next.assignee
+                } else {
+                  if (task.departmentId == null) {
+                    toastRef.current(
+                      '請先為主任務選擇部門，才能指定子任務負責人',
+                    )
+                    return s
+                  }
+                  if (
+                    !isAssigneeInDepartmentRoster(
+                      prev.teamRoster,
+                      task.departmentId,
+                      raw,
+                    )
+                  ) {
+                    toastRef.current('子任務負責人須為該部門名冊成員')
+                    return s
+                  }
+                  next.assignee = raw
+                }
+              }
+              return next
+            }),
+          }
+        }),
+      }))
     },
     [],
   )
@@ -887,21 +1032,25 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const removeDepartment = useCallback((id: string) => {
-    setData((prev) => ({
+    setData((prev) => {
+      const stripDept = (t: TaskItem): TaskItem => {
+        if (t.departmentId !== id) return t
+        const next: TaskItem = { ...t, departmentId: null }
+        const subs = reconcileSubtaskAssigneesToDepartment(
+          next.subtasks,
+          null,
+          prev.teamRoster,
+        )
+        if (subs !== next.subtasks) next.subtasks = subs
+        return next
+      }
+      return {
       ...prev,
       departments: prev.departments.filter((d) => d.id !== id),
-      today: prev.today.map((t) =>
-        t.departmentId === id ? { ...t, departmentId: null } : t,
-      ),
-      active: prev.active.map((t) =>
-        t.departmentId === id ? { ...t, departmentId: null } : t,
-      ),
-      someday: prev.someday.map((t) =>
-        t.departmentId === id ? { ...t, departmentId: null } : t,
-      ),
-      done: prev.done.map((t) =>
-        t.departmentId === id ? { ...t, departmentId: null } : t,
-      ),
+      today: prev.today.map(stripDept),
+      active: prev.active.map(stripDept),
+      someday: prev.someday.map(stripDept),
+      done: prev.done.map(stripDept),
       projects: prev.projects.map((p) =>
         p.departmentId === id ? { ...p, departmentId: null } : p,
       ),
@@ -911,7 +1060,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       teamRoster: prev.teamRoster.map((m) =>
         m.departmentId === id ? { ...m, departmentId: null } : m,
       ),
-    }))
+    }
+    })
   }, [])
 
   const toggleTask = useCallback((section: TaskSection, id: string) => {
@@ -1534,6 +1684,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       updateTaskDepartment,
       toggleTaskWeeklyCommit,
       updateTaskSmallProject,
+      addTaskSubtask,
+      removeTaskSubtask,
+      toggleTaskSubtask,
+      updateTaskSubtask,
       addDepartment,
       addDepartmentKpi,
       updateDepartmentKpi,
@@ -1596,6 +1750,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       updateTaskDepartment,
       toggleTaskWeeklyCommit,
       updateTaskSmallProject,
+      addTaskSubtask,
+      removeTaskSubtask,
+      toggleTaskSubtask,
+      updateTaskSubtask,
       addDepartment,
       addDepartmentKpi,
       updateDepartmentKpi,

@@ -26,23 +26,37 @@ export interface TeamRosterMember {
   role?: string
 }
 
+/** 看板任務（TaskItem）底下的子任務 */
+export interface TaskSubtask {
+  id: string
+  title: string
+  done: boolean
+  /** 到期日，選填 */
+  due?: string
+  /** 負責人，選填（須為父任務所屬部門之名冊成員） */
+  assignee?: string
+}
+
 export interface TaskItem {
   id: string
   title: string
   done: boolean
   priority: Priority
   created: string
-  /** null 或 undefined 視為「我自己的任務」；有值則為該部門的工作任務 */
+  /** 歸屬部門（必填；建立任務時須指定） */
   departmentId: string | null
   /** 隸屬之小型專案（任務看板「專案進度」）；可為空代表僅部門任務 */
   smallProjectId?: string
-  /** 任務負責人（與專案參與者連動報表） */
+  /** 任務負責人，選填（須為該部門名冊成員） */
   assignee?: string
+  /** 到期日，選填 */
   due?: string
   note?: string
   completedAt?: string
   /** 本週承諾（週會／週報對齊） */
   weeklyCommit?: boolean
+  /** 子任務清單 */
+  subtasks?: TaskSubtask[]
 }
 
 export interface WaitingItem {
