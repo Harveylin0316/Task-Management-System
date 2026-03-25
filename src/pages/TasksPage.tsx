@@ -7,8 +7,18 @@ import { DateTextAndPicker } from '../components/DateTextAndPicker'
 import { DepartmentSelect } from '../components/DepartmentSelect'
 import { RosterMemberSelect } from '../components/RosterMemberSelect'
 import { parseParticipantNames } from '../lib/parseParticipants'
+import {
+  parseTasksFromPlainText,
+  type TextImportParsedRow,
+} from '../lib/parseTasksFromText'
 import { isAssigneeInDepartmentRoster } from '../lib/taskAssignment'
 import { taskMatchesScope, type TaskScopeFilter } from '../lib/taskScope'
+
+const SECTION_IMPORT_LABEL: Record<TextImportParsedRow['section'], string> = {
+  today: '今日',
+  active: '進行中',
+  someday: '日後再說',
+}
 
 export function TasksPage() {
   const {
@@ -20,6 +30,7 @@ export function TasksPage() {
     removeSmallProject,
     updateSmallProjectProgress,
     toast,
+    importTasksFromParsedRows,
   } = useDashboard()
   const [activeIn, setActiveIn] = useState('')
   const [somedayIn, setSomedayIn] = useState('')
@@ -45,6 +56,15 @@ export function TasksPage() {
   const [deptActive, setDeptActive] = useState<string | null>(null)
   const [deptSomeday, setDeptSomeday] = useState<string | null>(null)
   const [onlyWeeklyCommit, setOnlyWeeklyCommit] = useState(false)
+  const [textImportRaw, setTextImportRaw] = useState('')
+  const [textImportDept, setTextImportDept] = useState<string | null>(null)
+  const [textImportSection, setTextImportSection] = useState<
+    'today' | 'active' | 'someday'
+  >('active')
+  const [textImportPreview, setTextImportPreview] = useState<{
+    rows: TextImportParsedRow[]
+    skipped: { lineNumber: number; raw: string; reason: string }[]
+  } | null>(null)
 
   const activeF = useMemo(
     () =>
@@ -149,6 +169,49 @@ export function TasksPage() {
       ? null
       : data.departments.find((d) => d.id === id)?.name ?? null
 
+  const runTextImportPreview = () => {
+    const t = textImportRaw.trim()
+    if (!t) {
+      toast('請貼上文字或選擇 .txt 檔')
+      return
+    }
+    const { rows, skipped } = parseTasksFromPlainText(t, {
+      defaultDepartmentId: textImportDept,
+      defaultSection: textImportSection,
+      departments: data.departments,
+      roster: data.teamRoster,
+    })
+    setTextImportPreview({ rows, skipped })
+    if (!rows.length && skipped.length) {
+      toast(`無法解析任何任務（${skipped.length} 行略過）`)
+    } else if (rows.length) {
+      toast(`已解析 ${rows.length} 筆，請確認後加入`)
+    } else {
+      toast('沒有可匯入的列')
+    }
+  }
+
+  const confirmTextImport = () => {
+    if (!textImportPreview?.rows.length) {
+      toast('請先按「預覽解析」')
+      return
+    }
+    importTasksFromParsedRows(textImportPreview.rows)
+    setTextImportRaw('')
+    setTextImportPreview(null)
+  }
+
+  const onPickTextFile = (file: File | undefined) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      setTextImportRaw(String(reader.result ?? ''))
+      setTextImportPreview(null)
+      toast(`已讀取 ${file.name}`)
+    }
+    reader.readAsText(file, 'UTF-8')
+  }
+
   return (
     <>
       <ScopeFilterBar
@@ -156,6 +219,156 @@ export function TasksPage() {
         value={scopeFilter}
         onChange={setScopeFilter}
       />
+
+      <div className="card section-gap text-import-card">
+        <div className="card-header">
+          <div className="card-title">📝 從文字批次建立任務</div>
+        </div>
+        <div className="card-body">
+          <p className="text-muted" style={{ fontSize: 12, marginBottom: 10 }}>
+            貼上會議記錄、備忘或清單文字，系統會依格式與名冊盡量辨識{' '}
+            <strong>標題</strong>、<strong>負責人</strong>、<strong>到期日</strong>、
+            <strong>部門</strong>。建議先設定預設部門與區塊，再按「預覽解析」確認後加入。
+          </p>
+          <div className="text-import-toolbar">
+            <DepartmentSelect
+              departments={data.departments}
+              value={textImportDept}
+              onChange={setTextImportDept}
+              className="input"
+              includePersonal={false}
+              emptyLabel="預設部門（單欄智慧解析必填）"
+            />
+            <select
+              className="input"
+              value={textImportSection}
+              onChange={(e) =>
+                setTextImportSection(
+                  e.target.value as 'today' | 'active' | 'someday',
+                )
+              }
+              aria-label="預設任務區塊"
+            >
+              <option value="today">預設區塊：今日</option>
+              <option value="active">預設區塊：進行中</option>
+              <option value="someday">預設區塊：日後再說</option>
+            </select>
+            <label className="btn text-import-file-btn">
+              選擇 .txt
+              <input
+                type="file"
+                accept=".txt,text/plain"
+                hidden
+                onChange={(e) => {
+                  onPickTextFile(e.target.files?.[0])
+                  e.target.value = ''
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={runTextImportPreview}
+            >
+              預覽解析
+            </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={!textImportPreview?.rows.length}
+              onClick={confirmTextImport}
+            >
+              確認加入任務
+            </button>
+          </div>
+          <textarea
+            className="review-input text-import-textarea"
+            placeholder={`範例（Tab 或 | 分隔）：\n完成簡報 | 王小明 | 2026-04-01 | 行銷\n[someday] 研究競品 張三\n單欄智慧（需選預設部門）：\n李四 週五前交企劃書 2026-03-28`}
+            value={textImportRaw}
+            onChange={(e) => {
+              setTextImportRaw(e.target.value)
+              setTextImportPreview(null)
+            }}
+            rows={10}
+            spellCheck={false}
+          />
+          <details className="text-import-hint">
+            <summary>格式說明</summary>
+            <ul>
+              <li>
+                <strong>多欄</strong>：每行{' '}
+                <code>標題 | 負責人 | 到期 | 部門</code>（Tab 亦可），後三欄可空；部門空則用預設部門。
+              </li>
+              <li>
+                <strong>兩欄</strong>：若第二欄像日期 → 當作到期日；否則當負責人。
+              </li>
+              <li>
+                <strong>單欄</strong>：須選「預設部門」— 會從文中找日期、並在該部門名冊中比對姓名為負責人。
+              </li>
+              <li>
+                行首可加 <code>[today]</code> / <code>[active]</code> /{' '}
+                <code>[someday]</code> 或 <code>今日：</code> 等指定區塊。
+              </li>
+              <li>以 <code>#</code> 或 <code>//</code> 開頭的行會略過。</li>
+            </ul>
+          </details>
+          {textImportPreview ? (
+            <div className="text-import-preview">
+              {textImportPreview.rows.length ? (
+                <>
+                  <div className="text-import-preview-title">
+                    將加入 {textImportPreview.rows.length} 筆
+                  </div>
+                  <div className="text-import-table-wrap">
+                    <table className="text-import-table">
+                      <thead>
+                        <tr>
+                          <th>區塊</th>
+                          <th>標題</th>
+                          <th>部門</th>
+                          <th>負責人</th>
+                          <th>到期</th>
+                          <th>備註</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {textImportPreview.rows.map((r, i) => (
+                          <tr key={`${r.lineNumber}-${i}`}>
+                            <td>{SECTION_IMPORT_LABEL[r.section]}</td>
+                            <td>{r.title}</td>
+                            <td>{deptLabel(r.departmentId) ?? '—'}</td>
+                            <td>{r.assignee ?? '—'}</td>
+                            <td>{r.due ?? '—'}</td>
+                            <td className="text-muted">
+                              {r.warnings.length
+                                ? r.warnings.join('；')
+                                : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : null}
+              {textImportPreview.skipped.length ? (
+                <div className="text-import-skipped">
+                  <strong>略過 {textImportPreview.skipped.length} 行：</strong>
+                  <ul>
+                    {textImportPreview.skipped.map((s) => (
+                      <li key={s.lineNumber}>
+                        第 {s.lineNumber} 行：{s.reason}
+                        <code className="text-import-skip-raw">{s.raw}</code>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
       <div className="tasks-board-toolbar">
         <label className="weekly-commit-filter">
           <input

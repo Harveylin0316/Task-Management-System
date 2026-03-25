@@ -1098,6 +1098,97 @@ textarea.review-input::placeholder {
   margin-top: 20px;
 }
 
+.text-import-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.text-import-toolbar .input {
+  min-width: 160px;
+}
+
+.text-import-file-btn {
+  cursor: pointer;
+  margin: 0;
+}
+
+.text-import-textarea {
+  width: 100%;
+  min-height: 200px;
+  font-size: 13px;
+  font-family: ui-monospace, monospace;
+  margin-bottom: 10px;
+}
+
+.text-import-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.text-import-hint ul {
+  margin: 8px 0 0 1.2em;
+  line-height: 1.55;
+}
+
+.text-import-hint code {
+  font-size: 11px;
+  background: var(--bg-section);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.text-import-preview-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.text-import-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+}
+
+.text-import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.text-import-table th,
+.text-import-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: top;
+}
+
+.text-import-table th {
+  background: var(--bg-section);
+  font-weight: 600;
+}
+
+.text-import-skipped {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.text-import-skipped ul {
+  margin: 6px 0 0 1.2em;
+}
+
+.text-import-skip-raw {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  word-break: break-all;
+}
+
 .proj-layout {
   display: grid;
   grid-template-columns: 260px 1fr;

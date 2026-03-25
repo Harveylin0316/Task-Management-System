@@ -24,6 +24,7 @@ import {
 import { migrateAppData } from '../lib/migrate'
 import { exampleBossWeeklyReportHen20260318 } from '../lib/bossWeeklyReportExampleData'
 import { appendDoneTasksToAccomplished } from '../lib/weeklyAccomplished'
+import type { TextImportParsedRow } from '../lib/parseTasksFromText'
 import { prepareAppDataForPersist } from '../lib/persistPayload'
 import { reconcileAppDataRoster } from '../lib/rosterReconcile'
 import {
@@ -76,6 +77,8 @@ export type DashboardContextValue = {
       smallProjectId?: string
     },
   ) => boolean
+  /** 將 parseTasksFromPlainText 的結果一次寫入看板 */
+  importTasksFromParsedRows: (rows: TextImportParsedRow[]) => number
   updateTaskMeta: (
     section: TaskSection,
     taskId: string,
@@ -565,6 +568,35 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     },
     [],
   )
+
+  const importTasksFromParsedRows = useCallback((rows: TextImportParsedRow[]) => {
+    if (!rows.length) return 0
+    const created = new Date().toLocaleDateString('zh-TW')
+    setData((prev) => {
+      const next: AppData = {
+        ...prev,
+        today: [...prev.today],
+        active: [...prev.active],
+        someday: [...prev.someday],
+      }
+      for (const r of rows) {
+        const row: TaskItem = {
+          id: newId(),
+          title: r.title,
+          done: false,
+          priority: 'mid',
+          created,
+          departmentId: r.departmentId,
+          assignee: r.assignee,
+          due: r.due,
+        }
+        next[r.section].push(row)
+      }
+      return next
+    })
+    toastRef.current(`已從文字建立 ${rows.length} 筆任務`)
+    return rows.length
+  }, [])
 
   const updateTaskMeta = useCallback(
     (
@@ -1678,6 +1710,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       importJsonFromFile,
       exportMarkdown,
       addTask,
+      importTasksFromParsedRows,
       updateTaskMeta,
       updateTaskDue,
       updateTaskAssignee,
@@ -1744,6 +1777,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       importJsonFromFile,
       exportMarkdown,
       addTask,
+      importTasksFromParsedRows,
       updateTaskMeta,
       updateTaskDue,
       updateTaskAssignee,
